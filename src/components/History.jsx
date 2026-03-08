@@ -26,7 +26,6 @@ import {
     DeleteOutline,
     ContentCopy,
     ImageOutlined,
-    DescriptionOutlined,
 } from "@mui/icons-material";
 import { getHistory, deleteHistoryEntry, clearHistory } from "../utils/history";
 
@@ -57,7 +56,7 @@ const History = () => {
             link.href = entry.resultImage;
             link.download = `watermarked_${entry.imageName}`;
         } else {
-            const file = new Blob([entry.data], { type: 'text/plain' });
+            const file = new Blob([entry.data || ""], { type: "text/plain" });
             link.href = URL.createObjectURL(file);
             link.download = `extracted_data_${entry.id}.txt`;
         }
@@ -71,28 +70,24 @@ const History = () => {
         alert("Copied to clipboard!");
     };
 
-    const getStatusChip = (status) => {
-        return (
-            <Chip
-                label={status}
-                color={status === "Success" ? "success" : "error"}
-                size="small"
-                variant="outlined"
-                sx={{ borderRadius: "8px", fontWeight: 600 }}
-            />
-        );
-    };
+    const getStatusChip = (status) => (
+        <Chip
+            label={status}
+            color={status === "Success" ? "success" : "error"}
+            size="small"
+            variant="outlined"
+            sx={{ borderRadius: "8px", fontWeight: 600 }}
+        />
+    );
 
-    const getTypeChip = (type) => {
-        return (
-            <Chip
-                label={type}
-                color={type === "Embed" ? "primary" : "info"}
-                size="small"
-                sx={{ fontWeight: "bold", borderRadius: "8px" }}
-            />
-        );
-    };
+    const getTypeChip = (type) => (
+        <Chip
+            label={type}
+            color={type === "Embed" ? "primary" : "info"}
+            size="small"
+            sx={{ fontWeight: "bold", borderRadius: "8px" }}
+        />
+    );
 
     return (
         <Box sx={{ width: "100%", py: 4 }}>
@@ -120,7 +115,15 @@ const History = () => {
                 </Stack>
             </Box>
 
-            <TableContainer component={Paper} sx={{ borderRadius: "20px", overflow: "auto", border: "1px solid #e2e8f0", boxShadow: "0 4px 20px rgba(0,0,0,0.05)" }}>
+            <TableContainer
+                component={Paper}
+                sx={{
+                    borderRadius: "20px",
+                    overflow: "auto",
+                    border: "1px solid #e2e8f0",
+                    boxShadow: "0 4px 20px rgba(0,0,0,0.05)",
+                }}
+            >
                 <Table sx={{ minWidth: 800 }}>
                     <TableHead sx={{ bgcolor: "#f8fafc" }}>
                         <TableRow>
@@ -129,14 +132,25 @@ const History = () => {
                             <TableCell sx={{ fontWeight: 700, color: "#475569" }}>Operation</TableCell>
                             <TableCell sx={{ fontWeight: 700, color: "#475569" }}>Target Image</TableCell>
                             <TableCell sx={{ fontWeight: 700, color: "#475569" }}>Status</TableCell>
-                            <TableCell align="center" sx={{ fontWeight: 700, color: "#475569", minWidth: 150 }}>Actions</TableCell>
+                            <TableCell align="center" sx={{ fontWeight: 700, color: "#475569", minWidth: 150 }}>
+                                Actions
+                            </TableCell>
                         </TableRow>
                     </TableHead>
                     <TableBody>
                         {history.length > 0 ? (
                             history.map((row) => (
-                                <TableRow key={row.id} hover sx={{ "&:last-child td, &:last-child th": { border: 0 } }}>
-                                    <TableCell sx={{ fontWeight: 600, color: row.type === "Embed" ? "#1976d2" : "#0288d1" }}>
+                                <TableRow
+                                    key={row.id}
+                                    hover
+                                    sx={{ "&:last-child td, &:last-child th": { border: 0 } }}
+                                >
+                                    <TableCell
+                                        sx={{
+                                            fontWeight: 600,
+                                            color: row.type === "Embed" ? "#1976d2" : "#0288d1",
+                                        }}
+                                    >
                                         {row.id}
                                     </TableCell>
                                     <TableCell sx={{ color: "#64748b" }}>{row.date}</TableCell>
@@ -145,17 +159,29 @@ const History = () => {
                                     <TableCell>{getStatusChip(row.status)}</TableCell>
                                     <TableCell align="center">
                                         <Tooltip title="View Details">
-                                            <IconButton onClick={() => setViewingEntry(row)} size="small" color="primary">
+                                            <IconButton
+                                                onClick={() => setViewingEntry(row)}
+                                                size="small"
+                                                color="primary"
+                                            >
                                                 <Visibility />
                                             </IconButton>
                                         </Tooltip>
                                         <Tooltip title="Download Result">
-                                            <IconButton onClick={() => handleDownload(row)} size="small" color="inherit">
+                                            <IconButton
+                                                onClick={() => handleDownload(row)}
+                                                size="small"
+                                                color="inherit"
+                                            >
                                                 <Download />
                                             </IconButton>
                                         </Tooltip>
                                         <Tooltip title="Delete">
-                                            <IconButton onClick={() => handleDelete(row.id)} size="small" color="error">
+                                            <IconButton
+                                                onClick={() => handleDelete(row.id)}
+                                                size="small"
+                                                color="error"
+                                            >
                                                 <DeleteOutline />
                                             </IconButton>
                                         </Tooltip>
@@ -185,9 +211,7 @@ const History = () => {
                 onClose={() => setViewingEntry(null)}
                 maxWidth="sm"
                 fullWidth
-                PaperProps={{
-                    sx: { borderRadius: "24px", p: 1 }
-                }}
+                PaperProps={{ sx: { borderRadius: "24px", p: 1 } }}
             >
                 {viewingEntry && (
                     <>
@@ -197,7 +221,10 @@ const History = () => {
                         <DialogContent>
                             <Stack spacing={3} sx={{ mt: 1 }}>
                                 <Box>
-                                    <Typography variant="caption" sx={{ fontWeight: 700, color: "#64748b", textTransform: "uppercase" }}>
+                                    <Typography
+                                        variant="caption"
+                                        sx={{ fontWeight: 700, color: "#64748b", textTransform: "uppercase" }}
+                                    >
                                         Operation Type
                                     </Typography>
                                     <Typography variant="body1" sx={{ fontWeight: 600 }}>
@@ -206,7 +233,10 @@ const History = () => {
                                 </Box>
 
                                 <Box>
-                                    <Typography variant="caption" sx={{ fontWeight: 700, color: "#64748b", textTransform: "uppercase" }}>
+                                    <Typography
+                                        variant="caption"
+                                        sx={{ fontWeight: 700, color: "#64748b", textTransform: "uppercase" }}
+                                    >
                                         Image File
                                     </Typography>
                                     <Stack direction="row" alignItems="center" spacing={1}>
@@ -216,11 +246,22 @@ const History = () => {
                                 </Box>
 
                                 <Box>
-                                    <Stack direction="row" justifyContent="space-between" alignItems="center" sx={{ mb: 1 }}>
-                                        <Typography variant="caption" sx={{ fontWeight: 700, color: "#64748b", textTransform: "uppercase" }}>
+                                    <Stack
+                                        direction="row"
+                                        justifyContent="space-between"
+                                        alignItems="center"
+                                        sx={{ mb: 1 }}
+                                    >
+                                        <Typography
+                                            variant="caption"
+                                            sx={{ fontWeight: 700, color: "#64748b", textTransform: "uppercase" }}
+                                        >
                                             {viewingEntry.type === "Embed" ? "Hidden Data" : "Extracted Information"}
                                         </Typography>
-                                        <IconButton size="small" onClick={() => copyToClipboard(viewingEntry.data)}>
+                                        <IconButton
+                                            size="small"
+                                            onClick={() => copyToClipboard(viewingEntry.data || "")}
+                                        >
                                             <ContentCopy sx={{ fontSize: 18 }} />
                                         </IconButton>
                                     </Stack>
@@ -232,23 +273,87 @@ const History = () => {
                                             bgcolor: "#f8fafc",
                                             fontFamily: "monospace",
                                             maxHeight: 200,
-                                            overflow: "auto"
+                                            overflow: "auto",
                                         }}
                                     >
-                                        {viewingEntry.data}
+                                        {viewingEntry.data || (
+                                            <em style={{ color: "#94a3b8" }}>No data recorded</em>
+                                        )}
                                     </Paper>
                                 </Box>
 
+                                {/* Result image preview for Embed entries */}
                                 {viewingEntry.type === "Embed" && viewingEntry.resultImage && (
                                     <Box>
-                                        <Typography variant="caption" sx={{ fontWeight: 700, color: "#64748b", textTransform: "uppercase", display: "block", mb: 1 }}>
+                                        <Typography
+                                            variant="caption"
+                                            sx={{
+                                                fontWeight: 700,
+                                                color: "#64748b",
+                                                textTransform: "uppercase",
+                                                display: "block",
+                                                mb: 1,
+                                            }}
+                                        >
                                             Result Preview
                                         </Typography>
                                         <Box
                                             component="img"
                                             src={viewingEntry.resultImage}
-                                            sx={{ width: "100%", borderRadius: "12px", border: "1px solid #e2e8f0" }}
+                                            sx={{
+                                                width: "100%",
+                                                borderRadius: "12px",
+                                                border: "1px solid #e2e8f0",
+                                            }}
                                         />
+                                    </Box>
+                                )}
+
+                                {/* Security metadata */}
+                                {viewingEntry.metadata && (
+                                    <Box>
+                                        <Typography
+                                            variant="caption"
+                                            sx={{
+                                                fontWeight: 700,
+                                                color: "#64748b",
+                                                textTransform: "uppercase",
+                                                display: "block",
+                                                mb: 1,
+                                            }}
+                                        >
+                                            Security Metadata
+                                        </Typography>
+                                        <Paper
+                                            variant="outlined"
+                                            sx={{ p: 2, borderRadius: "12px", bgcolor: "#f8fafc" }}
+                                        >
+                                            {Object.entries(viewingEntry.metadata).map(
+                                                ([key, value]) =>
+                                                    value && (
+                                                        <Box
+                                                            key={key}
+                                                            sx={{
+                                                                display: "flex",
+                                                                justifyContent: "space-between",
+                                                                mb: 0.5,
+                                                            }}
+                                                        >
+                                                            <Typography variant="caption" color="text.secondary">
+                                                                {key}:
+                                                            </Typography>
+                                                            <Typography
+                                                                variant="caption"
+                                                                fontFamily="monospace"
+                                                                fontWeight={600}
+                                                            >
+                                                                {String(value).substring(0, 24)}
+                                                                {String(value).length > 24 ? "..." : ""}
+                                                            </Typography>
+                                                        </Box>
+                                                    )
+                                            )}
+                                        </Paper>
                                     </Box>
                                 )}
                             </Stack>

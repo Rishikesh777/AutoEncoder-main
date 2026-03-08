@@ -35,6 +35,8 @@ import {
     Fingerprint,
     History,
     Image as ImageIcon,
+    Replay,
+    Close,
 } from "@mui/icons-material";
 import { addHistory } from "../utils/history";
 
@@ -53,6 +55,7 @@ const Extract = () => {
     const [notification, setNotification] = useState({ open: false, message: "", severity: "info" });
     const [metadataInput, setMetadataInput] = useState({ image_id: "", session_key: "" });
     const [showMetadataInput, setShowMetadataInput] = useState(false);
+    const [hasUploadedAtLeastOnce, setHasUploadedAtLeastOnce] = useState(false);
 
     const fileInputRef = useRef(null);
     const metadataFileInputRef = useRef(null);
@@ -67,6 +70,7 @@ const Extract = () => {
             setExtractedData("");
             setResult(null);
             setError(null);
+            setHasUploadedAtLeastOnce(true);
         }
     };
 
@@ -81,6 +85,7 @@ const Extract = () => {
             setExtractedData("");
             setResult(null);
             setError(null);
+            setHasUploadedAtLeastOnce(true);
         }
     };
 
@@ -231,6 +236,13 @@ const Extract = () => {
         if (fileInputRef.current) fileInputRef.current.value = "";
     };
 
+    const handleRetry = () => {
+        setIsExtracted(false);
+        setExtractedData("");
+        setResult(null);
+        setError(null);
+    };
+
     // Get verification status color and icon
     const getVerificationStatus = () => {
         if (!result?.verification) return { color: "default", icon: <ErrorOutline />, text: "Unknown" };
@@ -291,8 +303,8 @@ const Extract = () => {
                     },
                 }}
             >
-                {!image ? (
-                    // Upload State
+                {!image && !hasUploadedAtLeastOnce ? (
+                    // Initial Big Upload State (only for the very first time)
                     <Stack spacing={3} alignItems="center" sx={{ py: 6 }}>
                         <Box sx={{
                             p: 3,
@@ -338,36 +350,85 @@ const Extract = () => {
                         </Stack>
                     </Stack>
                 ) : (
-                    // Image Preview and Extraction State
+                    // Image Preview and Extraction State (OR Small Upload box if image cleared)
                     <Fade in={true}>
                         <Box sx={{ width: "100%" }}>
-                            {/* Selected Image Preview and Name */}
+                            {/* Header Section: Image Preview or Compact Upload */}
                             <Box sx={{ position: "relative", display: "flex", alignItems: "center", mb: 4, gap: 2 }}>
-                                <Paper
-                                    elevation={0}
-                                    sx={{
-                                        p: 1.5,
-                                        borderRadius: "20px",
-                                        bgcolor: "rgba(2, 136, 209, 0.04)",
-                                        border: "1px solid #e2e8f0",
-                                        display: "inline-flex",
-                                        alignItems: "center",
-                                        gap: 1.5,
-                                        transition: "all 0.3s ease",
-                                        "&:hover": {
-                                            bgcolor: "rgba(2, 136, 209, 0.08)",
-                                            borderColor: "#0288d1"
-                                        }
-                                    }}
-                                >
-                                    {/* default icon only */}
-                                    <ImageIcon sx={{ fontSize: 40, color: "#0288d1" }} />
-                                    <Box sx={{ display: "flex", flexDirection: "column" }}>
-                                        <Typography variant="body2" sx={{ fontWeight: 700, color: "#1a365d" }} noWrap>
-                                            {imageName}
+                                {!image ? (
+                                    <Paper
+                                        elevation={0}
+                                        onClick={() => fileInputRef.current.click()}
+                                        sx={{
+                                            p: 1.5,
+                                            borderRadius: "20px",
+                                            bgcolor: "rgba(2, 136, 209, 0.04)",
+                                            border: "2px dashed #0288d1",
+                                            display: "inline-flex",
+                                            alignItems: "center",
+                                            gap: 1.5,
+                                            cursor: "pointer",
+                                            minWidth: 160,
+                                            transition: "all 0.3s ease",
+                                            "&:hover": {
+                                                bgcolor: "rgba(2, 136, 209, 0.08)",
+                                                transform: "translateY(-2px)"
+                                            }
+                                        }}
+                                    >
+                                        <CloudUpload sx={{ fontSize: 24, color: "#0288d1" }} />
+                                        <Typography variant="body2" sx={{ fontWeight: 700, color: "#0288d1" }}>
+                                            Upload Image
                                         </Typography>
-                                    </Box>
-                                </Paper>
+                                    </Paper>
+                                ) : (
+                                    <Paper
+                                        elevation={0}
+                                        sx={{
+                                            position: "relative",
+                                            p: 1.5,
+                                            borderRadius: "20px",
+                                            bgcolor: "rgba(2, 136, 209, 0.04)",
+                                            border: "1px solid #e2e8f0",
+                                            display: "inline-flex",
+                                            alignItems: "center",
+                                            gap: 1.5,
+                                            transition: "all 0.3s ease",
+                                            "&:hover": {
+                                                bgcolor: "rgba(2, 136, 209, 0.08)",
+                                                borderColor: "#0288d1",
+                                                "& .remove-image-btn": { opacity: 1 }
+                                            }
+                                        }}
+                                    >
+                                        <ImageIcon sx={{ fontSize: 40, color: "#0288d1" }} />
+                                        <Box sx={{ display: "flex", flexDirection: "column" }}>
+                                            <Typography variant="body2" sx={{ fontWeight: 700, color: "#1a365d" }} noWrap>
+                                                {imageName}
+                                            </Typography>
+                                        </Box>
+
+                                        <IconButton
+                                            className="remove-image-btn"
+                                            onClick={clearImage}
+                                            size="small"
+                                            sx={{
+                                                position: "absolute",
+                                                top: -10,
+                                                right: -10,
+                                                opacity: 0,
+                                                transition: "all 0.2s ease",
+                                                bgcolor: "white",
+                                                border: "1px solid #e2e8f0",
+                                                boxShadow: "0 2px 8px rgba(0,0,0,0.1)",
+                                                "&:hover": { bgcolor: "#fee2e2", color: "#ef4444", transform: "scale(1.1)" },
+                                                zIndex: 5
+                                            }}
+                                        >
+                                            <Close sx={{ fontSize: 16 }} />
+                                        </IconButton>
+                                    </Paper>
+                                )}
 
                                 <Button
                                     size="small"
@@ -457,7 +518,7 @@ const Extract = () => {
                                             fullWidth
                                             variant="contained"
                                             size="large"
-                                            disabled={isProcessing}
+                                            disabled={!image || isProcessing}
                                             onClick={handleExtract}
                                             startIcon={isProcessing ? <CircularProgress size={20} color="inherit" /> : <SearchIcon />}
                                             sx={{
@@ -593,6 +654,26 @@ const Extract = () => {
                                                     }}
                                                 >
                                                     Verification Report
+                                                </Button>
+                                                <Button
+                                                    variant="outlined"
+                                                    size="large"
+                                                    onClick={handleRetry}
+                                                    startIcon={<Replay />}
+                                                    sx={{
+                                                        flex: 1,
+                                                        py: 1.5,
+                                                        borderRadius: "16px",
+                                                        fontSize: "1rem",
+                                                        fontWeight: 700,
+                                                        textTransform: "none",
+                                                        borderColor: "#64748b",
+                                                        color: "#64748b",
+                                                        borderWidth: 2,
+                                                        "&:hover": { borderColor: "#1a365d", color: "#1a365d", bgcolor: "rgba(26,54,93,0.04)" },
+                                                    }}
+                                                >
+                                                    Try Again
                                                 </Button>
                                             </Stack>
                                         </Stack>

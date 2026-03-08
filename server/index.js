@@ -13,6 +13,17 @@ const upload = multer({ storage: multer.memoryStorage() });
 dotenv.config();
 const fetch = require('node-fetch');
 
+// ============================================
+// ENVIRONMENT VALIDATION ON STARTUP
+// ============================================
+const REQUIRED_ENV = ['MONGO_URI', 'JWT_SECRET'];
+const missingEnv = REQUIRED_ENV.filter((key) => !process.env[key]);
+if (missingEnv.length > 0) {
+    console.error(`❌ Missing required environment variables: ${missingEnv.join(', ')}`);
+    console.error('Please create a .env file with these variables set.');
+    process.exit(1);
+}
+
 const app = express();
 const PORT = process.env.PORT || 5000;
 
@@ -28,12 +39,10 @@ app.use(express.urlencoded({ extended: true }));
 // ROBUST MONGODB CONNECTION WITH RETRY LOGIC
 // ============================================
 
-// Connection options optimized for Atlas
 const mongooseOptions = {
     autoIndex: true,
 };
 
-// Connection states
 const CONNECTION_STATES = {
     0: 'disconnected',
     1: 'connected',
@@ -56,7 +65,6 @@ const connectDB = async () => {
 
         console.log(`✅ MongoDB Connected: ${conn.connection.host}/${conn.connection.db.databaseName}`);
 
-        // Set up connection event handlers
         mongoose.connection.on('error', (err) => {
             console.error('❌ MongoDB connection error:', err);
             isConnected = false;
@@ -81,7 +89,6 @@ const connectDB = async () => {
             console.log('2. Check if the connection string matches your local configuration');
         }
 
-        // Retry logic
         if (connectionAttempts < MAX_RETRIES) {
             const delay = Math.min(1000 * Math.pow(2, connectionAttempts), 30000);
             console.log(`⏰ Retrying in ${delay / 1000} seconds...`);
@@ -93,10 +100,13 @@ const connectDB = async () => {
     }
 };
 
-// Start connection
 connectDB();
 
-// Define WatermarkedImage record schema
+// ============================================
+// FIX: Define WatermarkedImage schema and model ONCE at top level
+// Previously it was defined twice (once here, once inline in history route)
+// which caused the second reference to potentially be undefined.
+// ============================================
 const watermarkedImageSchema = new mongoose.Schema({
     user_id: { type: String, required: true },
     image_id: { type: String, required: true },
@@ -105,6 +115,7 @@ const watermarkedImageSchema = new mongoose.Schema({
     created_at: { type: Date, default: Date.now }
 }, { collection: 'watermarked_images' });
 
+// Use mongoose.models to avoid "Cannot overwrite model once compiled" error on hot reload
 const WatermarkRef = mongoose.models.WatermarkedImage ||
     mongoose.model('WatermarkedImage', watermarkedImageSchema);
 
@@ -128,17 +139,14 @@ app.post('/api/auth/register', async (req, res) => {
     try {
         const { name, email, password } = req.body;
 
-        // Check if user exists
         let user = await User.findOne({ email });
         if (user) {
             return res.status(400).json({ message: 'User already exists' });
         }
 
-        // Hash password
         const salt = await bcrypt.genSalt(10);
         const hashedPassword = await bcrypt.hash(password, salt);
 
-        // Create user
         user = new User({
             name,
             email,
@@ -159,19 +167,16 @@ app.post('/api/auth/login', async (req, res) => {
     try {
         const { email, password } = req.body;
 
-        // Check if user exists
         const user = await User.findOne({ email });
         if (!user) {
             return res.status(400).json({ message: 'Invalid credentials' });
         }
 
-        // Validate password
         const isMatch = await bcrypt.compare(password, user.password);
         if (!isMatch) {
             return res.status(400).json({ message: 'Invalid credentials' });
         }
 
-        // Create token
         const payload = {
             user: {
                 id: user.id,
@@ -213,7 +218,6 @@ app.delete('/api/auth/delete', async (req, res) => {
             return res.status(404).json({ message: 'User not found' });
         }
 
-        // Verify password
         const isMatch = await bcrypt.compare(password, user.password);
         if (!isMatch) {
             return res.status(400).json({ message: 'Incorrect password' });
@@ -264,15 +268,12 @@ app.put('/api/auth/update', async (req, res) => {
             return res.status(404).json({ message: 'User not found' });
         }
 
-        // Verify current password
         const isMatch = await bcrypt.compare(currentPassword, user.password);
         if (!isMatch) {
             return res.status(400).json({ message: 'Incorrect current password' });
         }
 
-        // Update Email if provided
         if (newEmail) {
-            // Check if email already in use by another user
             const otherUser = await User.findOne({ email: newEmail });
             if (otherUser && otherUser.id !== user.id) {
                 return res.status(400).json({ message: 'Email already in use' });
@@ -280,7 +281,6 @@ app.put('/api/auth/update', async (req, res) => {
             user.email = newEmail;
         }
 
-        // Update Password if provided
         if (newPassword) {
             const salt = await bcrypt.genSalt(10);
             user.password = await bcrypt.hash(newPassword, salt);
@@ -299,10 +299,8 @@ app.put('/api/auth/update', async (req, res) => {
 });
 
 // ============================================
-// AUTOENCODER INTEGRATION ENDPOINTS
+// JWT AUTH MIDDLEWARE
 // ============================================
-
-// Middleware to verify JWT token for protected routes
 const authMiddleware = (req, res, next) => {
     const token = req.headers.authorization?.split(' ')[1];
     if (!token) {
@@ -318,6 +316,18 @@ const authMiddleware = (req, res, next) => {
         const message = err.name === 'TokenExpiredError' ? 'Token expired' : 'Token is not valid';
         res.status(401).json({ message, error: err.message });
     }
+};
+
+// ============================================
+// FIX: Timeout helper compatible with node-fetch v2
+// node-fetch v2 does not support AbortController's signal natively.
+// We wrap the fetch in a Promise.race with a manual timeout rejection.
+// ============================================
+const fetchWithTimeout = (url, options, timeoutMs = 30000) => {
+    const timeoutPromise = new Promise((_, reject) =>
+        setTimeout(() => reject(new Error('REQUEST_TIMEOUT')), timeoutMs)
+    );
+    return Promise.race([fetch(url, options), timeoutPromise]);
 };
 
 /**
@@ -340,7 +350,6 @@ app.post('/api/autoencoder/embed', authMiddleware, upload.single('image'), async
         console.log(`Image: ${req.file.originalname}, Size: ${req.file.size} bytes`);
         console.log(`Data length: ${data.length} characters`);
 
-        // Create form data to forward to Python backend
         const formData = new FormData();
         formData.append('image', req.file.buffer, {
             filename: req.file.originalname,
@@ -349,12 +358,11 @@ app.post('/api/autoencoder/embed', authMiddleware, upload.single('image'), async
         formData.append('data', data);
         formData.append('user_id', req.user.id);
 
-        // Forward to Python backend
-        const response = await fetch(`${PYTHON_BACKEND}/api/autoencoder/embed`, {
-            method: 'POST',
-            body: formData,
-            headers: formData.getHeaders()
-        });
+        const response = await fetchWithTimeout(
+            `${PYTHON_BACKEND}/api/autoencoder/embed`,
+            { method: 'POST', body: formData, headers: formData.getHeaders() },
+            60000 // 60s timeout for embedding (model inference can be slow)
+        );
 
         const result = await response.json();
 
@@ -371,11 +379,10 @@ app.post('/api/autoencoder/embed', authMiddleware, upload.single('image'), async
                 auth_tag: result.auth_tag,
                 created_at: new Date()
             });
-
             console.log('Saved watermark reference to MongoDB');
         } catch (dbError) {
+            // Log but don't fail — main operation succeeded
             console.error('Error saving to MongoDB:', dbError);
-            // Continue even if DB save fails - the main operation succeeded
         }
 
         res.json({
@@ -386,11 +393,20 @@ app.post('/api/autoencoder/embed', authMiddleware, upload.single('image'), async
             auth_tag: result.auth_tag,
             session_key: result.session_key,
             metadata: result.metadata,
-            image: result.image // Base64 encoded image
+            image: result.image
         });
 
     } catch (err) {
         console.error('Error in /api/autoencoder/embed:', err);
+
+        if (err.message === 'REQUEST_TIMEOUT') {
+            return res.status(504).json({
+                success: false,
+                message: 'Python backend timeout',
+                error: 'Request timed out after 60 seconds'
+            });
+        }
+
         res.status(500).json({
             success: false,
             message: 'Error processing autoencoder embedding request',
@@ -418,7 +434,6 @@ app.post('/api/autoencoder/extract', authMiddleware, upload.single('image'), asy
         console.log(`Image ID: ${image_id || 'Not provided'}`);
         console.log(`Session Key: ${session_key ? 'Provided' : 'Not provided'}`);
 
-        // Create form data to forward to Python backend
         const formData = new FormData();
         formData.append('image', req.file.buffer, {
             filename: req.file.originalname,
@@ -435,25 +450,16 @@ app.post('/api/autoencoder/extract', authMiddleware, upload.single('image'), asy
 
         console.log('Forwarding to Python backend...');
 
-        // Forward to Python backend with timeout
-        const controller = new AbortController();
-        const timeoutId = setTimeout(() => controller.abort(), 30000); // 30 second timeout
-
-        const response = await fetch(`${PYTHON_BACKEND}/api/autoencoder/extract`, {
-            method: 'POST',
-            body: formData,
-            headers: formData.getHeaders(),
-            signal: controller.signal
-        });
-
-        clearTimeout(timeoutId);
+        const response = await fetchWithTimeout(
+            `${PYTHON_BACKEND}/api/autoencoder/extract`,
+            { method: 'POST', body: formData, headers: formData.getHeaders() },
+            30000
+        );
 
         console.log('Python backend response status:', response.status);
 
-        // Get response as text first for debugging
         const responseText = await response.text();
 
-        // Parse JSON
         let result;
         try {
             result = JSON.parse(responseText);
@@ -482,7 +488,7 @@ app.post('/api/autoencoder/extract', authMiddleware, upload.single('image'), asy
         console.error('Error name:', err.name);
         console.error('Error message:', err.message);
 
-        if (err.name === 'AbortError') {
+        if (err.message === 'REQUEST_TIMEOUT') {
             return res.status(504).json({
                 success: false,
                 message: 'Python backend timeout',
@@ -507,13 +513,11 @@ app.get('/api/autoencoder/verify/:image_id', authMiddleware, async (req, res) =>
     try {
         const { image_id } = req.params;
 
-        // Forward to Python backend
-        const response = await fetch(`${PYTHON_BACKEND}/api/autoencoder/verify/${image_id}`, {
-            method: 'GET',
-            headers: {
-                'Content-Type': 'application/json'
-            }
-        });
+        const response = await fetchWithTimeout(
+            `${PYTHON_BACKEND}/api/autoencoder/verify/${image_id}`,
+            { method: 'GET', headers: { 'Content-Type': 'application/json' } },
+            10000
+        );
 
         const result = await response.json();
 
@@ -521,10 +525,7 @@ app.get('/api/autoencoder/verify/:image_id', authMiddleware, async (req, res) =>
             throw new Error(result.detail || 'Python backend error');
         }
 
-        res.json({
-            success: true,
-            ...result
-        });
+        res.json({ success: true, ...result });
 
     } catch (err) {
         console.error('Error in /api/autoencoder/verify:', err);
@@ -540,33 +541,26 @@ app.get('/api/autoencoder/verify/:image_id', authMiddleware, async (req, res) =>
  * @route   GET /api/autoencoder/history
  * @desc    Get user's watermarked images history
  * @access  Private
+ * FIX: Now uses the single top-level WatermarkRef instead of re-fetching
+ * mongoose.models.WatermarkedImage which could be undefined if registration failed.
  */
 app.get('/api/autoencoder/history', authMiddleware, async (req, res) => {
     try {
-        // Query local MongoDB
-        const WatermarkRef = mongoose.models.WatermarkedImage;
-        if (WatermarkRef) {
-            const localHistory = await WatermarkRef.find({ user_id: req.user.id })
-                .sort({ created_at: -1 })
-                .limit(50)
-                .lean();
+        const localHistory = await WatermarkRef.find({ user_id: req.user.id })
+            .sort({ created_at: -1 })
+            .limit(50)
+            .lean();
 
-            return res.json({
-                success: true,
-                history: localHistory.map(item => ({
-                    id: item.image_id,
-                    image_name: item.original_name,
-                    created_at: item.created_at,
-                    auth_tag: item.auth_tag ? item.auth_tag.substring(0, 16) + '...' : null,
-                    has_image: true
-                }))
-            });
-        } else {
-            return res.json({
-                success: true,
-                history: []
-            });
-        }
+        return res.json({
+            success: true,
+            history: localHistory.map(item => ({
+                id: item.image_id,
+                image_name: item.original_name,
+                created_at: item.created_at,
+                auth_tag: item.auth_tag ? item.auth_tag.substring(0, 16) + '...' : null,
+                has_image: true
+            }))
+        });
     } catch (err) {
         console.error('Error in /api/autoencoder/history:', err);
         res.status(500).json({
@@ -586,29 +580,22 @@ app.get('/api/autoencoder/image/:image_id', authMiddleware, async (req, res) => 
     try {
         const { image_id } = req.params;
 
-        // Check local MongoDB
-        const WatermarkRef = mongoose.models.WatermarkedImage;
-        if (WatermarkRef) {
-            const record = await WatermarkRef.findOne({
-                image_id: image_id,
-                user_id: req.user.id
-            });
+        const record = await WatermarkRef.findOne({
+            image_id: image_id,
+            user_id: req.user.id
+        });
 
-            if (record) {
-                return res.json({
-                    success: true,
-                    image_id: record.image_id,
-                    original_name: record.original_name,
-                    created_at: record.created_at,
-                    auth_tag: record.auth_tag
-                });
-            }
+        if (record) {
+            return res.json({
+                success: true,
+                image_id: record.image_id,
+                original_name: record.original_name,
+                created_at: record.created_at,
+                auth_tag: record.auth_tag
+            });
         }
 
-        res.status(404).json({
-            success: false,
-            message: 'Image not found'
-        });
+        res.status(404).json({ success: false, message: 'Image not found' });
 
     } catch (err) {
         console.error('Error in /api/autoencoder/image:', err);
@@ -627,10 +614,11 @@ app.get('/api/autoencoder/image/:image_id', authMiddleware, async (req, res) => 
  */
 app.get('/api/autoencoder/status', async (req, res) => {
     try {
-        const response = await fetch(`${PYTHON_BACKEND}/`, {
-            method: 'GET',
-            timeout: 3000
-        });
+        const response = await fetchWithTimeout(
+            `${PYTHON_BACKEND}/`,
+            { method: 'GET' },
+            3000
+        );
 
         if (response.ok) {
             const data = await response.json();

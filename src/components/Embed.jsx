@@ -28,18 +28,12 @@ import {
     Download,
     Security,
     VerifiedUser,
-    QrCodeScanner,
-    History,
     CheckCircle,
-    ErrorOutline,
 } from "@mui/icons-material";
 import { addHistory } from "../utils/history";
 
 // Get auth token from localStorage
 const getAuthToken = () => localStorage.getItem("auth_token");
-
-// Python backend URL
-const PYTHON_BACKEND = import.meta.env.VITE_PYTHON_BACKEND_URL || "http://localhost:8000";
 
 const Embed = () => {
     const [image, setImage] = useState(null);
@@ -51,6 +45,10 @@ const Embed = () => {
     const [result, setResult] = useState(null);
     const [error, setError] = useState(null);
     const [notification, setNotification] = useState({ open: false, message: "", severity: "info" });
+
+    // FIX: Store the watermarked image base64 in component state (not localStorage)
+    // so the user can download it directly without bloating localStorage.
+    const [watermarkedImageBase64, setWatermarkedImageBase64] = useState(null);
 
     const fileInputRef = useRef(null);
     const secretFileInputRef = useRef(null);
@@ -64,6 +62,7 @@ const Embed = () => {
             setIsGenerated(false);
             setResult(null);
             setError(null);
+            setWatermarkedImageBase64(null);
         }
     };
 
@@ -77,6 +76,7 @@ const Embed = () => {
             setIsGenerated(false);
             setResult(null);
             setError(null);
+            setWatermarkedImageBase64(null);
         }
     };
 
@@ -108,7 +108,6 @@ const Embed = () => {
     };
 
     const handleEmbed = async () => {
-        // Validate inputs
         if (!imageFile) {
             setError("Please select an image first");
             return;
@@ -122,26 +121,22 @@ const Embed = () => {
         setError(null);
 
         try {
-            // Check authentication
             const token = getAuthToken();
             if (!token) {
                 throw new Error("You must be logged in to use this feature");
             }
 
-            // Create FormData for file upload
             const formData = new FormData();
             formData.append("image", imageFile);
             formData.append("data", dataToHide);
 
-            // Show uploading notification
             showNotification("Uploading image to autoencoder...", "info");
 
-            // Send to Node.js backend (which forwards to Python)
+            // All calls go through the Node.js proxy at /api — no direct Python URL needed.
             const response = await fetch("/api/autoencoder/embed", {
                 method: "POST",
                 headers: {
                     "Authorization": `Bearer ${token}`,
-                    // Don't set Content-Type - browser will set it with boundary for FormData
                 },
                 body: formData,
             });
@@ -152,23 +147,26 @@ const Embed = () => {
                 throw new Error(data.message || data.error || "Embedding failed");
             }
 
-            // Success!
             setResult(data);
             setIsGenerated(true);
 
-            // Save to history (with the actual result)
+            // FIX: Store base64 in component state, NOT in history/localStorage
+            if (data.image) {
+                setWatermarkedImageBase64(data.image);
+            }
+
+            // FIX: Do NOT pass resultImage to addHistory — it strips it internally
+            // but being explicit here is cleaner and avoids confusion.
             addHistory({
                 type: "Embed",
                 imageName: imageName,
                 data: dataToHide,
-                resultImage: data.image ? `data:image/png;base64,${data.image}` : image,
                 status: "Success",
                 metadata: {
                     image_id: data.image_id,
                     auth_tag: data.auth_tag,
                     autoencoder_tag: data.autoencoder_tag,
-                    psnr: data.metadata?.psnr,
-                    ssim: data.metadata?.ssim,
+                    embedding_rate: data.metadata?.embedding_rate,
                 }
             });
 
@@ -178,24 +176,22 @@ const Embed = () => {
             console.error("Embedding error:", err);
             setError(err.message);
             showNotification(`Error: ${err.message}`, "error");
+
+            addHistory({
+                type: "Embed",
+                imageName: imageName,
+                data: dataToHide,
+                status: "Error",
+            });
         } finally {
             setIsProcessing(false);
         }
     };
 
     const handleDownload = () => {
-        if (result?.image) {
-            // Download the watermarked image from backend
+        if (watermarkedImageBase64) {
             const link = document.createElement("a");
-            link.href = `data:image/png;base64,${result.image}`;
-            link.download = `watermarked_${imageName || "image.png"}`;
-            document.body.appendChild(link);
-            link.click();
-            document.body.removeChild(link);
-        } else if (image) {
-            // Fallback to original image
-            const link = document.createElement("a");
-            link.href = image;
+            link.href = `data:image/png;base64,${watermarkedImageBase64}`;
             link.download = `watermarked_${imageName || "image.png"}`;
             document.body.appendChild(link);
             link.click();
@@ -232,6 +228,7 @@ const Embed = () => {
         setIsGenerated(false);
         setResult(null);
         setError(null);
+        setWatermarkedImageBase64(null);
         if (fileInputRef.current) fileInputRef.current.value = "";
     };
 
@@ -283,7 +280,6 @@ const Embed = () => {
                 }}
             >
                 {!image ? (
-                    // Upload State
                     <Stack spacing={3} alignItems="center" sx={{ py: 6 }}>
                         <Box sx={{
                             p: 3,
@@ -327,10 +323,8 @@ const Embed = () => {
                         </Stack>
                     </Stack>
                 ) : (
-                    // Image Preview and Input State
                     <Fade in={true}>
                         <Box sx={{ width: "100%" }}>
-                            {/* Image Preview with Delete Button */}
                             <Box sx={{ position: "relative", display: "inline-block", mb: 4 }}>
                                 <Box
                                     component="img"
@@ -358,7 +352,6 @@ const Embed = () => {
                                     <DeleteOutline />
                                 </IconButton>
 
-                                {/* File name chip */}
                                 <Chip
                                     label={imageName}
                                     size="small"
@@ -374,7 +367,6 @@ const Embed = () => {
                                 />
                             </Box>
 
-                            {/* Data Input Section */}
                             <Zoom in={true} style={{ transitionDelay: '200ms' }}>
                                 <Box sx={{ maxWidth: 600, mx: "auto", textAlign: "left" }}>
                                     <Box
@@ -437,7 +429,6 @@ const Embed = () => {
                                         />
                                     </Box>
 
-                                    {/* Action Buttons */}
                                     <Stack spacing={2}>
                                         <Button
                                             fullWidth
@@ -477,7 +468,7 @@ const Embed = () => {
                 />
             </Paper>
 
-            {/* Results Section - Shown after successful embedding */}
+            {/* Results Section */}
             {isGenerated && result && (
                 <Fade in={true}>
                     <Paper sx={{ mt: 4, p: 4, borderRadius: "24px", bgcolor: "#f8fafc" }}>
@@ -498,22 +489,25 @@ const Embed = () => {
                                         </Typography>
                                     </Box>
                                     <Box sx={{ p: 2, textAlign: "center" }}>
-                                        <Box
-                                            component="img"
-                                            src={`data:image/png;base64,${result.image}`}
-                                            sx={{
-                                                maxWidth: "100%",
-                                                maxHeight: 300,
-                                                borderRadius: "12px",
-                                                boxShadow: "0 4px 12px rgba(0,0,0,0.1)",
-                                            }}
-                                        />
+                                        {watermarkedImageBase64 && (
+                                            <Box
+                                                component="img"
+                                                src={`data:image/png;base64,${watermarkedImageBase64}`}
+                                                sx={{
+                                                    maxWidth: "100%",
+                                                    maxHeight: 300,
+                                                    borderRadius: "12px",
+                                                    boxShadow: "0 4px 12px rgba(0,0,0,0.1)",
+                                                }}
+                                            />
+                                        )}
                                         <Stack direction="row" spacing={2} sx={{ mt: 2, justifyContent: "center" }}>
                                             <Button
                                                 variant="contained"
                                                 startIcon={<Download />}
                                                 onClick={handleDownload}
                                                 size="small"
+                                                disabled={!watermarkedImageBase64}
                                             >
                                                 Download Image
                                             </Button>
@@ -526,6 +520,9 @@ const Embed = () => {
                                                 Metadata
                                             </Button>
                                         </Stack>
+                                        <Typography variant="caption" color="text.secondary" sx={{ display: "block", mt: 1 }}>
+                                            ⚠️ Download the metadata JSON — you'll need it for extraction.
+                                        </Typography>
                                     </Box>
                                 </Card>
                             </Grid>
@@ -571,29 +568,23 @@ const Embed = () => {
                                             </Typography>
 
                                             <Grid container spacing={2}>
-                                                <Grid item xs={4}>
+                                                <Grid item xs={6}>
                                                     <Paper sx={{ p: 1.5, textAlign: "center", bgcolor: "#e3f2fd" }}>
-                                                        <Typography variant="caption" color="text.secondary">PSNR</Typography>
-                                                        <Typography variant="h6">{result.metadata?.psnr || "45.2"} dB</Typography>
+                                                        <Typography variant="caption" color="text.secondary">Total Bits</Typography>
+                                                        <Typography variant="h6">{result.metadata?.total_bits ?? "—"}</Typography>
                                                     </Paper>
                                                 </Grid>
-                                                <Grid item xs={4}>
+                                                <Grid item xs={6}>
                                                     <Paper sx={{ p: 1.5, textAlign: "center", bgcolor: "#e8f5e8" }}>
-                                                        <Typography variant="caption" color="text.secondary">SSIM</Typography>
-                                                        <Typography variant="h6">{result.metadata?.ssim || "0.992"}</Typography>
-                                                    </Paper>
-                                                </Grid>
-                                                <Grid item xs={4}>
-                                                    <Paper sx={{ p: 1.5, textAlign: "center", bgcolor: "#fff3e0" }}>
-                                                        <Typography variant="caption" color="text.secondary">Rate</Typography>
-                                                        <Typography variant="h6">{result.metadata?.embedding_rate || "0.5"} bpp</Typography>
+                                                        <Typography variant="caption" color="text.secondary">Embed Rate</Typography>
+                                                        <Typography variant="h6">{result.metadata?.embedding_rate ?? "—"}</Typography>
                                                     </Paper>
                                                 </Grid>
                                             </Grid>
 
                                             <Alert severity="success" icon={<VerifiedUser />} sx={{ borderRadius: "12px" }}>
                                                 <Typography variant="body2">
-                                                    <strong>Multi-level verification enabled:</strong> Blake3 hash, 128-bit autoencoder tag, and lossless LSB embedding
+                                                    <strong>Multi-level verification enabled:</strong> Blake3 hash, 128-bit autoencoder tag, and lossless IWT embedding
                                                 </Typography>
                                             </Alert>
                                         </Stack>
@@ -634,7 +625,6 @@ const Embed = () => {
                 </Box>
             )}
 
-            {/* Notifications */}
             <Snackbar
                 open={notification.open}
                 autoHideDuration={4000}
