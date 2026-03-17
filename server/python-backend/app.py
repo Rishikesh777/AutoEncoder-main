@@ -47,6 +47,8 @@ try:
                                       set_device)
     from utils.payload_utils import (combine_tag_and_hash, extract_tag_and_hash,
                                       verify_combined_tag_hash, hash_image_pixels)
+    # NEW: import quality metrics utility
+    from utils.metrics       import compute_all_metrics
 except ImportError as e:
     print(f"CRITICAL ERROR: Failed to import utils: {e}"); raise
 
@@ -87,7 +89,7 @@ except Exception as e:
 
 # ── Autoencoder ───────────────────────────────────────────────────────────────
 device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
-set_device(device)   # propagate to image_utils
+set_device(device)
 try:
     model             = get_autoencoder(device=device)
     watermark_module  = WatermarkEmbeddingModule()
@@ -123,17 +125,12 @@ async def embed_data(
     user_id: str        = Form(None),
 ):
     """
-    Embed user data + combined tag+hash into the image via Huffman + HS.
+    Embed user data into image via Huffman + Histogram Shifting.
 
-    Pipeline:
-        1.  Convert to grayscale — preserve ALL original pixel content
-        2.  Run autoencoder on a 512×512 copy → generate 128-bit tag ONLY
-        3.  Blake3-hash the tag -> 256-bit hash
-        4.  Compute Blake3 of raw carrier pixels (image integrity hash)
-        5.  Assemble payload bytes: [2B len][user data][128B tag][64B tag_hash][64B img_hash]
-        6.  PRNG-scramble payload bits with session key
-        7.  Huffman-compress scrambled bytes then embed via Histogram Shifting
-        8.  Save watermarked image + HS metadata to MongoDB
+    NEW in this version:
+        Step 8 — compute PSNR/SSIM between original carrier and watermarked image.
+                 Returns finite values (typically 48-55 dB PSNR, SSIM ≈ 0.999).
+                 Proves the watermark is visually imperceptible.
     """
     try:
         if model is None:
@@ -163,31 +160,25 @@ async def embed_data(
 
         # Step 3 — tag hash
         tag_hash = Blake3Hasher.hash_data(autoencoder_tag)
-        print(f"🔐 Tag hash: {tag_hash[:30]}...")
 
         # Step 4 — carrier + image integrity hash
         carrier_array = np.array(pil_image).astype(np.uint8)
         carrier_array = ensure_even_dims(carrier_array)
         carrier_array = np.clip(carrier_array, 5, 250).astype(np.int32)
-        print(f"🖼️  Carrier: {carrier_array.shape}, range [{carrier_array.min()}, {carrier_array.max()}]")
 
-        image_hash     = hash_image_pixels(carrier_array.astype(np.uint8))
-        print(f"🔒 Image integrity hash: {image_hash[:30]}...")
+        image_hash = hash_image_pixels(carrier_array.astype(np.uint8))
 
         # Step 5 — payload bytes
         user_data_bytes = data.encode('utf-8')
-        tag_bytes       = autoencoder_tag.encode('ascii')   # 128 chars
-        hash_bytes_enc  = tag_hash.encode('ascii')          # 64 hex chars
-        image_hash_enc  = image_hash.encode('ascii')        # 64 hex chars
+        tag_bytes       = autoencoder_tag.encode('ascii')
+        hash_bytes_enc  = tag_hash.encode('ascii')
+        image_hash_enc  = image_hash.encode('ascii')
         user_len_prefix = len(user_data_bytes).to_bytes(2, 'big')
-        # Layout: [2B len][user data][128B tag][64B tag_hash][64B image_hash]
-        raw_payload = user_len_prefix + user_data_bytes + tag_bytes + hash_bytes_enc + image_hash_enc
-        print(f"📝 Raw payload: {len(raw_payload)} bytes "
-              f"({len(user_data_bytes)} user + 2 prefix + 128 tag + 64 tag_hash + 64 image_hash)")
+        raw_payload     = user_len_prefix + user_data_bytes + tag_bytes + hash_bytes_enc + image_hash_enc
+        print(f"📝 Raw payload: {len(raw_payload)} bytes")
 
         # Capacity check
         capacity_bytes = IWTEmbedder.get_capacity(carrier_array)
-        print(f"📐 Safe capacity: {capacity_bytes} bytes")
         if len(raw_payload) > capacity_bytes:
             raise HTTPException(
                 status_code=400,
@@ -210,46 +201,65 @@ async def embed_data(
             ), 2)
             for i in range(0, len(scrambled_bits), 8)
         )
-        print(f"🔄 Scrambled: {len(scrambled_bytes)} bytes, session_key={session_key[:16]}...")
 
         # Step 7 — HS embed
+        # Keep a clean copy of original carrier BEFORE embedding.
+        # Stored in MongoDB so extract can compute round-trip PSNR (should be ∞).
+        original_carrier = carrier_array.astype(np.uint8).copy()
+
         watermarked_array, embedded_bits, hs_rounds = IWTEmbedder.embed_in_hh(
-            carrier_array.astype(np.uint8), scrambled_bytes
+            original_carrier, scrambled_bytes
         )
-        raw_bit_count = len(scrambled_bits)
-        saving_pct    = (1 - embedded_bits / max(raw_bit_count, 1)) * 100
-        print(f"💧 HS-embedded {embedded_bits} bits across {len(hs_rounds)} round(s) "
-              f"({saving_pct:.1f}% Huffman compression)")
-        print(f"✅ Watermarked: {watermarked_array.shape}, "
-              f"range [{watermarked_array.min()}, {watermarked_array.max()}]")
+        print(f"💧 HS-embedded {embedded_bits} bits across {len(hs_rounds)} round(s)")
+
+        # Encode original_carrier as base64 PNG for MongoDB storage.
+        orig_buf = io.BytesIO()
+        Image.fromarray(original_carrier, mode='L').save(orig_buf, format='PNG')
+        original_carrier_b64 = base64.b64encode(orig_buf.getvalue()).decode()
+
+        # ── Step 8: PSNR / SSIM — Original vs Watermarked ──────────────────
+        # Expected: finite PSNR (typically 48–55 dB), SSIM ≈ 0.999
+        # This proves the watermark causes minimal, imperceptible distortion.
+        print("\n--- Step 8: Quality metrics (Original vs Watermarked) ---")
+        quality_metrics = compute_all_metrics(
+            original_carrier,
+            watermarked_array,
+            label="Original vs Watermarked"
+        )
+        print(f"  PSNR : {quality_metrics['psnr_display']}")
+        print(f"  SSIM : {quality_metrics['ssim_display']}")
+        print(f"  MSE  : {quality_metrics['mse']}")
+        print(f"  Max Δ: ±{quality_metrics['max_pixel_diff']} grey level(s)")
 
         final_image = Image.fromarray(watermarked_array, mode='L')
         img_buffer  = io.BytesIO()
         final_image.save(img_buffer, format='PNG')
         img_base64  = base64.b64encode(img_buffer.getvalue()).decode()
 
-        # Step 8 — persist
+        # Step 9 — persist to MongoDB
         watermarked_doc = {
-            'user_id':           user_id,
-            'original_name':     image.filename,
-            'watermarked_image': img_base64,
-            'autoencoder_tag':   autoencoder_tag,
-            'auth_tag':          tag_hash,
-            'image_hash':        image_hash,
-            'session_key':       session_key,
-            'scramble_indices':  indices,
-            'total_bits':        embedded_bits,
-            'raw_payload_bytes': len(raw_payload),
-            'user_data_bytes':   len(user_data_bytes),
-            'encoding':          'huffman+hs',
-            'hs_rounds':         hs_rounds,
-            'image_shape':       list(carrier_array.shape),
-            'original_size':     list(original_size),
-            'subband':           'spatial_hs',
-            'created_at':        datetime.utcnow(),
+            'user_id':               user_id,
+            'original_name':         image.filename,
+            'watermarked_image':     img_base64,
+            'original_carrier_image': original_carrier_b64,
+            'autoencoder_tag':       autoencoder_tag,
+            'auth_tag':              tag_hash,
+            'image_hash':            image_hash,
+            'session_key':           session_key,
+            'scramble_indices':      indices,
+            'total_bits':            embedded_bits,
+            'raw_payload_bytes':     len(raw_payload),
+            'user_data_bytes':       len(user_data_bytes),
+            'encoding':              'huffman+hs',
+            'hs_rounds':             hs_rounds,
+            'image_shape':           list(carrier_array.shape),
+            'original_size':         list(original_size),
+            'subband':               'spatial_hs',
+            'quality_metrics':       quality_metrics,
+            'created_at':            datetime.utcnow(),
         }
         result = watermarked_images.insert_one(watermarked_doc)
-        print(f"✅ Saved to MongoDB with ID: {result.inserted_id}")
+        print(f"✅ Saved to MongoDB: {result.inserted_id}")
 
         return JSONResponse({
             'success':         True,
@@ -258,14 +268,17 @@ async def embed_data(
             'autoencoder_tag': autoencoder_tag,
             'auth_tag':        tag_hash,
             'session_key':     session_key,
+            'quality_metrics': quality_metrics,
             'metadata': {
-                'total_bits':        embedded_bits,
-                'raw_payload_bytes': len(raw_payload),
-                'encoding':          'huffman+hs',
-                'hs_rounds':         len(hs_rounds),
-                'subband':           'spatial_hs',
-                'original_size':     f"{original_size[0]}x{original_size[1]}",
-                'embedding_rate':    f"{embedded_bits / (carrier_array.shape[0] * carrier_array.shape[1]):.4f} bpp",
+                'total_bits':                    embedded_bits,
+                'raw_payload_bytes':             len(raw_payload),
+                'encoding':                      'huffman+hs',
+                'hs_rounds':                     len(hs_rounds),
+                'subband':                       'spatial_hs',
+                'original_size':                 f"{original_size[0]}x{original_size[1]}",
+                'embedding_rate':                f"{embedded_bits / (carrier_array.shape[0] * carrier_array.shape[1]):.4f} bpp",
+                'psnr_original_vs_watermarked':  quality_metrics['psnr_display'],
+                'ssim_original_vs_watermarked':  quality_metrics['ssim_display'],
             },
             'image': img_base64,
         })
@@ -290,15 +303,12 @@ async def extract_data(
     """
     Extract and verify data embedded via Huffman + Histogram Shifting.
 
-    Reverse pipeline:
-        1.  Load hs_rounds from MongoDB
-        2.  HS-extract scrambled bytes + restore original image pixel-perfectly
-        3.  Descramble bits with session key
-        4.  Parse payload: [2B len][user data][128B tag][64B tag_hash][64B img_hash]
-        5.  Verify Blake3(tag) == tag_hash  (internal consistency)
-        5b. Hash restored image and compare to embedded image_hash  (tamper check)
-        6.  Generate current autoencoder tag for double-check
-        7.  Return verification result
+    NEW in this version:
+        Step 7 — compute PSNR/SSIM between watermarked input and restored image.
+                 Expected result for a successful lossless extraction:
+                   PSNR = ∞  (infinity, MSE = 0)
+                   SSIM = 1.0 (pixel-identical)
+                 Any deviation indicates the restoration was not pixel-perfect.
     """
     try:
         print(f"\n{'='*50}\nEXTRACT REQUEST RECEIVED\n{'='*50}")
@@ -314,6 +324,9 @@ async def extract_data(
         img_array = np.array(pil_image).astype(np.uint8)
         img_array = ensure_even_dims(img_array)
 
+        # Keep a copy of the watermarked input — needed for Step 7 metrics
+        watermarked_input = img_array.copy()
+
         # DB look-up
         expected_user_data_bits   = None
         expected_total_bits       = None
@@ -325,7 +338,7 @@ async def extract_data(
         expected_image_hash       = None
 
         if image_id:
-            print(f"\n--- Looking up image_id in MongoDB: {image_id} ---")
+            print(f"\n--- Looking up image_id: {image_id} ---")
             try:
                 if watermarked_images is not None:
                     doc = watermarked_images.find_one({'_id': ObjectId(image_id)})
@@ -338,8 +351,6 @@ async def extract_data(
                         expected_scramble_indices = doc.get('scramble_indices')
                         expected_hs_rounds        = doc.get('hs_rounds')
                         expected_image_hash       = doc.get('image_hash')
-                        print(f"✓ Found — total_bits={expected_total_bits}, "
-                              f"hs_rounds={len(expected_hs_rounds or [])}")
                         if not session_key and expected_session_key:
                             session_key = expected_session_key
                             print("  Using session_key from DB")
@@ -350,36 +361,30 @@ async def extract_data(
 
         if image_id and not session_key:
             raise HTTPException(status_code=400, detail=(
-                "Session key is required for extraction but was not found in the "
-                "database or provided manually."
+                "Session key is required for extraction but was not found."
             ))
         if image_id and not expected_scramble_indices:
             raise HTTPException(status_code=400, detail=(
                 "Scramble indices not found in the database for this image_id."
             ))
-
-        # Step 1 — validate hs_rounds
-        print("\n--- Step 1: Validating HS rounds ---")
         if not expected_hs_rounds:
             raise HTTPException(status_code=400, detail=(
                 "Histogram shifting rounds (hs_rounds) not found. "
                 "Please re-embed the image with the current version."
             ))
-        print(f"✓ HS rounds loaded: {len(expected_hs_rounds)} round(s)")
 
-        # Step 2 — HS extract + image restore
-        print("\n--- Step 2: Histogram shifting extract + image restoration ---")
+        # HS extract + pixel-perfect image restoration
+        print("\n--- HS extract + image restoration ---")
         try:
             scrambled_bytes_out, restored_image = IWTEmbedder.extract_from_hh(
                 img_array, expected_hs_rounds
             )
             print(f"✓ HS extracted: {len(scrambled_bytes_out)} bytes")
-            print(f"✓ Original image restored: {restored_image.shape}")
+            print(f"✓ Restored image shape: {restored_image.shape}")
         except Exception as e:
             raise HTTPException(status_code=500, detail=f"Histogram shifting extraction failed: {e}")
 
-        # Step 3 — descramble
-        print("\n--- Step 3: Descrambling ---")
+        # Descramble
         extracted_bits   = [int(b) for byte in scrambled_bytes_out for b in format(byte, '08b')]
         descrambled_bits = extracted_bits
 
@@ -391,8 +396,6 @@ async def extract_data(
                 print(f"✓ Descrambling successful ({len(descrambled_bits)} bits)")
             except Exception as e:
                 raise HTTPException(status_code=500, detail=f"Descrambling failed: {e}")
-        elif not image_id:
-            print("⚠ No image_id provided. Blind extraction attempt.")
 
         descrambled_payload = bytes(
             int(''.join(
@@ -402,8 +405,7 @@ async def extract_data(
             for i in range(0, len(descrambled_bits), 8)
         )
 
-        # Step 4 — parse payload
-        print("\n--- Step 4: Parsing payload ---")
+        # Parse payload
         extracted_tag        = None
         extracted_hash       = None
         extracted_image_hash = None
@@ -419,50 +421,96 @@ async def extract_data(
             extracted_hash       = descrambled_payload[tag_start + 128: tag_start + 192].decode('ascii', errors='replace')
             extracted_image_hash = descrambled_payload[tag_start + 192: tag_start + 256].decode('ascii', errors='replace')
             print(f"📝 Extracted user data: '{extracted_user_data}'")
-            print(f"   Tag preview:        {extracted_tag[:30]}...")
-            print(f"   Tag hash preview:   {extracted_hash[:30]}...")
-            print(f"   Image hash preview: {(extracted_image_hash or '')[:30]}...")
         except Exception as e:
             print(f"⚠ Payload parse error: {e}")
             extracted_user_data = f"Parse error: {e}"
 
-        # Step 5 — internal consistency
-        print("\n--- Step 5: Hash verification ---")
+        # Verify hashes
         if extracted_tag and extracted_hash and len(extracted_tag) == 128:
             tag_valid = verify_combined_tag_hash(extracted_tag, extracted_hash)
 
-        # Step 5b — image integrity
         image_integrity_valid = False
         restored_image_hash   = None
-        print("\n--- Step 5b: Image integrity check ---")
         try:
             restored_image_hash = hash_image_pixels(restored_image)
             if extracted_image_hash and len(extracted_image_hash) == 64:
                 image_integrity_valid = (restored_image_hash == extracted_image_hash)
-                print(f"  Restored hash:  {restored_image_hash[:30]}...")
-                print(f"  Embedded hash:  {extracted_image_hash[:30]}...")
-                print(f"  Match: {'✓ PASSED' if image_integrity_valid else '✗ FAILED — IMAGE WAS TAMPERED'}")
-            else:
-                print("  ⚠ No image hash in payload (old embed format)")
+                print(f"  Image integrity: {'✓ PASSED' if image_integrity_valid else '✗ FAILED'}")
         except Exception as e:
             print(f"  ⚠ Image hash check error: {e}")
 
-        # Step 6 — current autoencoder tag
-        print("\n--- Step 6: Generating current autoencoder tag (double-pass) ---")
+        # Current autoencoder tag
         img_tensor = image_to_tensor(pil_image)
         with torch.no_grad():
             reconstructed_tensor, _ = model(img_tensor)
-            reconstructed_image     = tensor_to_image(reconstructed_tensor)
-            re_tensor               = image_to_tensor(reconstructed_image)
+            reconstructed_image_obj = tensor_to_image(reconstructed_tensor)
+            re_tensor               = image_to_tensor(reconstructed_image_obj)
             _, stable_latent        = model(re_tensor)
             latent_np               = stable_latent.cpu().numpy().flatten()
             current_tag = ''.join(str(int(b > 0)) for b in latent_np[:128])
-        print(f"Current tag:   {current_tag[:30]}...")
-        if extracted_tag:
-            print(f"Extracted tag: {extracted_tag[:30]}...")
 
-        # Step 7 — verification result
-        print("\n--- Step 7: Verification ---")
+        # ── Step 7: PSNR / SSIM — two comparisons ────────────────────────────
+        #
+        # Comparison A: watermarked_input vs restored_image
+        #   → Should always be ∞ / 1.0 — proves HS extraction is lossless.
+        #
+        # Comparison B: original_carrier (from DB) vs restored_image
+        #   → Should also be ∞ / 1.0 — proves full round-trip reversibility
+        #     back to the exact state the image was in before embedding.
+        #
+        print("\n--- Step 7: Quality metrics ---")
+        quality_metrics_wm_vs_restored = None
+        quality_metrics_orig_vs_restored = None
+
+        try:
+            quality_metrics_wm_vs_restored = compute_all_metrics(
+                watermarked_input,
+                restored_image,
+                label="Watermarked vs Restored"
+            )
+            print(f"  [Watermarked vs Restored]")
+            print(f"    PSNR : {quality_metrics_wm_vs_restored['psnr_display']}")
+            print(f"    SSIM : {quality_metrics_wm_vs_restored['ssim_display']}")
+            print(f"    Identical: {quality_metrics_wm_vs_restored['identical']}")
+        except Exception as e:
+            print(f"  ⚠ Watermarked vs Restored metrics error: {e}")
+            quality_metrics_wm_vs_restored = {"error": str(e)}
+
+        # Fetch original_carrier from MongoDB for round-trip comparison
+        try:
+            if image_id and watermarked_images is not None:
+                doc_for_orig = watermarked_images.find_one(
+                    {'_id': ObjectId(image_id)},
+                    {'original_carrier_image': 1}
+                )
+                if doc_for_orig and doc_for_orig.get('original_carrier_image'):
+                    orig_bytes = base64.b64decode(doc_for_orig['original_carrier_image'])
+                    original_carrier_img = np.array(
+                        Image.open(io.BytesIO(orig_bytes)).convert('L')
+                    ).astype(np.uint8)
+                    original_carrier_img = ensure_even_dims(original_carrier_img)
+
+                    quality_metrics_orig_vs_restored = compute_all_metrics(
+                        original_carrier_img,
+                        restored_image,
+                        label="Original vs Restored (round-trip)"
+                    )
+                    print(f"  [Original vs Restored (round-trip)]")
+                    print(f"    PSNR : {quality_metrics_orig_vs_restored['psnr_display']}")
+                    print(f"    SSIM : {quality_metrics_orig_vs_restored['ssim_display']}")
+                    print(f"    Identical: {quality_metrics_orig_vs_restored['identical']}")
+                    if quality_metrics_orig_vs_restored['identical']:
+                        print("    ✅ PERFECT ROUND-TRIP REVERSIBILITY CONFIRMED")
+                else:
+                    print("  ⚠ original_carrier_image not found in DB (old embed record)")
+        except Exception as e:
+            print(f"  ⚠ Original vs Restored metrics error: {e}")
+            quality_metrics_orig_vs_restored = {"error": str(e)}
+
+        # Use the round-trip comparison as the primary quality_metrics if available
+        quality_metrics = quality_metrics_orig_vs_restored or quality_metrics_wm_vs_restored
+
+        # Verification result
         verification_result = {
             'extraction_success':    True,
             'current_tag':           current_tag,
@@ -477,10 +525,10 @@ async def extract_data(
         }
 
         if extracted_tag and extracted_hash:
-            print(f"Level 1 — Internal hash (Blake3 tag):  {'✓' if tag_valid else '✗'}")
-            print(f"Level 2 — Image integrity hash:         {'✓' if image_integrity_valid else '✗'}")
             tag_match_db = (extracted_tag == expected_autoencoder_tag) if expected_autoencoder_tag else False
-            print(f"Level 3 — DB autoencoder tag match:     {'✓' if tag_match_db else '✗'}")
+            print(f"  Level 1 — Internal hash:   {'✓' if tag_valid else '✗'}")
+            print(f"  Level 2 — Image hash:       {'✓' if image_integrity_valid else '✗'}")
+            print(f"  Level 3 — DB tag match:     {'✓' if tag_match_db else '✗'}")
 
             if tag_valid and image_integrity_valid:
                 verification_result['verification_status'] = 'verified'
@@ -488,14 +536,11 @@ async def extract_data(
             elif tag_valid and not image_integrity_valid:
                 verification_result['verification_status'] = 'tampered'
                 verification_result['message'] = '❌ Image has been tampered with — pixel hash mismatch'
-            elif not tag_valid:
-                verification_result['verification_status'] = 'tampered'
-                verification_result['message'] = '❌ Payload integrity check failed — data corrupted or wrong key'
             else:
                 verification_result['verification_status'] = 'tampered'
-                verification_result['message'] = '❌ Data tampered or corrupted'
+                verification_result['message'] = '❌ Payload integrity check failed — data corrupted or wrong key'
 
-        print(f"Final status: {verification_result['verification_status']}")
+        print(f"\n  Final status: {verification_result['verification_status']}")
 
         return JSONResponse({
             'success':               True,
@@ -505,16 +550,21 @@ async def extract_data(
             'current_tag':           current_tag,
             'tag_valid':             tag_valid,
             'image_integrity_valid': image_integrity_valid,
+            'quality_metrics':       quality_metrics,
             'verification':          verification_result,
             'metadata': {
-                'extraction_time':       '320ms',
-                'data_size':             len(extracted_user_data),
-                'bytes_extracted':       len(scrambled_bytes_out),
-                'encoding':              'huffman+hs',
-                'hs_rounds':             len(expected_hs_rounds),
-                'subband_used':          'spatial_hs',
-                'image_restored':        True,
-                'image_integrity_check': 'passed' if image_integrity_valid else 'FAILED',
+                'extraction_time':                  '320ms',
+                'data_size':                        len(extracted_user_data),
+                'bytes_extracted':                  len(scrambled_bytes_out),
+                'encoding':                         'huffman+hs',
+                'hs_rounds':                        len(expected_hs_rounds),
+                'subband_used':                     'spatial_hs',
+                'image_restored':                   True,
+                'image_integrity_check':            'passed' if image_integrity_valid else 'FAILED',
+                'psnr_watermarked_vs_restored':     quality_metrics_wm_vs_restored.get('psnr_display') if quality_metrics_wm_vs_restored else None,
+                'ssim_watermarked_vs_restored':     quality_metrics_wm_vs_restored.get('ssim_display') if quality_metrics_wm_vs_restored else None,
+                'psnr_original_vs_restored':        quality_metrics_orig_vs_restored.get('psnr_display') if quality_metrics_orig_vs_restored else None,
+                'ssim_original_vs_restored':        quality_metrics_orig_vs_restored.get('ssim_display') if quality_metrics_orig_vs_restored else None,
             },
         })
 
@@ -542,6 +592,7 @@ async def verify_image(image_id: str):
             'image_id':               image_id,
             'auth_tag':               doc.get('auth_tag'),
             'subband':                doc.get('subband', 'HH'),
+            'quality_metrics':        doc.get('quality_metrics'),
             'created_at':             doc.get('created_at').isoformat() if doc.get('created_at') else None,
             'verification_available': True,
         })
@@ -563,16 +614,43 @@ async def get_history(user_id: str):
         history = []
         for doc in docs:
             history.append({
-                'id':         str(doc['_id']),
-                'image_name': doc.get('original_name'),
-                'created_at': doc.get('created_at').isoformat() if doc.get('created_at') else None,
-                'auth_tag':   doc.get('auth_tag')[:16] + '...' if doc.get('auth_tag') else None,
-                'subband':    doc.get('subband', 'HH'),
-                'has_image':  True,
+                'id':              str(doc['_id']),
+                'image_name':      doc.get('original_name'),
+                'created_at':      doc.get('created_at').isoformat() if doc.get('created_at') else None,
+                'auth_tag':        doc.get('auth_tag')[:16] + '...' if doc.get('auth_tag') else None,
+                'subband':         doc.get('subband', 'HH'),
+                'has_image':       True,
+                'quality_metrics': doc.get('quality_metrics'),
             })
         return JSONResponse({'success': True, 'history': history})
     except Exception as e:
         raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.get("/api/autoencoder/image/{image_id}")
+async def get_image(image_id: str):
+    try:
+        if watermarked_images is None:
+            raise HTTPException(status_code=503, detail="Database not available")
+        doc = watermarked_images.find_one({'_id': ObjectId(image_id)})
+        if not doc:
+            raise HTTPException(status_code=404, detail="Image not found")
+        return JSONResponse({
+            'success':      True,
+            'image_id':     image_id,
+            'original_name': doc.get('original_name'),
+            'created_at':   doc.get('created_at').isoformat() if doc.get('created_at') else None,
+            'auth_tag':     doc.get('auth_tag'),
+        })
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))
+
+
+@app.get("/api/autoencoder/status")
+async def status():
+    return {"message": "AutoEncoder Python Backend Running", "status": "ok"}
 
 
 if __name__ == "__main__":

@@ -208,6 +208,8 @@ const Embed = () => {
             autoencoder_tag: result.autoencoder_tag,
             session_key: result.session_key,
             metadata: result.metadata,
+            psnr_original_vs_watermarked: result.metadata?.psnr_original_vs_watermarked,
+            ssim_original_vs_watermarked: result.metadata?.ssim_original_vs_watermarked,
             timestamp: new Date().toISOString(),
             image_name: imageName,
         };

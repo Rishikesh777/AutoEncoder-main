@@ -214,6 +214,13 @@ const Extract = () => {
             extracted_data: result.extracted_data,
             autoencoder_tag: result.extracted_tag || result.current_tag,
             verification: result.verification,
+            quality_metrics: {
+                psnr_watermarked_vs_restored: result.metadata?.psnr_watermarked_vs_restored,
+                ssim_watermarked_vs_restored: result.metadata?.ssim_watermarked_vs_restored,
+                psnr_original_vs_restored: result.metadata?.psnr_original_vs_restored,
+                ssim_original_vs_restored: result.metadata?.ssim_original_vs_restored,
+                note: "PSNR = ∞ and SSIM = 1.0 confirm pixel-perfect reversibility",
+            },
             metadata: result.metadata,
         };
 
