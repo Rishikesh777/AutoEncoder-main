@@ -54,8 +54,10 @@ const Extract = () => {
     const [error, setError] = useState(null);
     const [notification, setNotification] = useState({ open: false, message: "", severity: "info" });
     const [metadataInput, setMetadataInput] = useState({ image_id: "", session_key: "" });
+    const [decryptionPassword, setDecryptionPassword] = useState("");
     const [showMetadataInput, setShowMetadataInput] = useState(false);
     const [hasUploadedAtLeastOnce, setHasUploadedAtLeastOnce] = useState(false);
+    const [isTampered, setIsTampered] = useState(false);
 
     const fileInputRef = useRef(null);
     const metadataFileInputRef = useRef(null);
@@ -70,6 +72,7 @@ const Extract = () => {
             setExtractedData("");
             setResult(null);
             setError(null);
+            setIsTampered(false);
             setHasUploadedAtLeastOnce(true);
         }
     };
@@ -85,6 +88,7 @@ const Extract = () => {
             setExtractedData("");
             setResult(null);
             setError(null);
+            setIsTampered(false);
             setHasUploadedAtLeastOnce(true);
         }
     };
@@ -107,6 +111,8 @@ const Extract = () => {
                     image_id: data.image_id || data.id || "",
                     session_key: data.session_key || ""
                 });
+                // Note: password is intentionally NOT stored in metadata JSON
+                // The user must enter it manually for security
                 setShowMetadataInput(true);
                 showNotification("✓ Metadata loaded successfully", "success");
             } catch (err) {
@@ -145,6 +151,9 @@ const Extract = () => {
             if (metadataInput.session_key) {
                 formData.append("session_key", metadataInput.session_key);
             }
+            if (decryptionPassword.trim()) {
+                formData.append("encryption_password", decryptionPassword.trim());
+            }
 
             // Show processing notification
             showNotification("Sending image to autoencoder for extraction...", "info");
@@ -158,10 +167,23 @@ const Extract = () => {
                 body: formData,
             });
 
-            const data = await response.json();
+            let data;
+            const resText = await response.text();
+            try {
+                data = JSON.parse(resText);
+            } catch (e) {
+                console.error("Non-JSON response:", resText);
+                throw new Error("Server returned an invalid response. Please check if the backend is running correctly.");
+            }
 
             if (!response.ok) {
-                throw new Error(data.message || data.error || "Extraction failed");
+                const detail = data.detail || data.message || data.error || "Extraction failed";
+                if (detail.startsWith("TAMPERED:")) {
+                    setIsTampered(true);
+                    setIsExtracted(false);
+                    throw new Error(detail);
+                }
+                throw new Error(detail);
             }
 
             // Success!
@@ -248,11 +270,12 @@ const Extract = () => {
         setExtractedData("");
         setResult(null);
         setError(null);
+        setIsTampered(false);
     };
 
     // Get verification status color and icon
     const getVerificationStatus = () => {
-        if (!result?.verification) return { color: "default", icon: <ErrorOutline />, text: "Unknown" };
+        if (!result?.verification) return { color: "info", icon: <ErrorOutline />, text: "Unknown" };
 
         const status = result.verification.verification_status;
         if (status === "verified" || result.verification.integrity_check === "passed") {
@@ -284,6 +307,24 @@ const Extract = () => {
                     onClose={() => setError(null)}
                 >
                     {error}
+                </Alert>
+            )}
+
+            {/* Tamper Detection Banner */}
+            {isTampered && (
+                <Alert
+                    severity="error"
+                    sx={{ mb: 3, borderRadius: "16px", border: "2px solid #d32f2f" }}
+                    onClose={() => setIsTampered(false)}
+                >
+                    <Typography variant="subtitle2" sx={{ fontWeight: 700, mb: 0.5 }}>
+                        ❌ Image Tampered — Extraction Refused
+                    </Typography>
+                    <Typography variant="body2">
+                        The pixel integrity hash does not match. This image has been modified
+                        externally after watermarking. Extraction is refused to protect data integrity.
+                        Use the original unmodified watermarked image.
+                    </Typography>
                 </Alert>
             )}
 
@@ -509,9 +550,21 @@ const Extract = () => {
                                                         disabled={isProcessing}
                                                     />
                                                 </Grid>
+                                                <Grid item xs={12}>
+                                                    <TextField
+                                                        fullWidth
+                                                        size="small"
+                                                        type="password"
+                                                        label="Decryption Password"
+                                                        placeholder="Enter password if data was encrypted during embedding"
+                                                        value={decryptionPassword}
+                                                        onChange={(e) => setDecryptionPassword(e.target.value)}
+                                                        disabled={isProcessing}
+                                                    />
+                                                </Grid>
                                             </Grid>
                                             <Typography variant="caption" color="text.secondary" sx={{ mt: 1, display: "block" }}>
-                                                * Image ID and Session Key are required for accurate descrambling and verification
+                                                * Image ID and Session Key required for descrambling. Password only needed if data was encrypted.
                                             </Typography>
                                         </Paper>
                                     </Zoom>
@@ -707,33 +760,35 @@ const Extract = () => {
             </Paper>
 
             {/* Processing Overlay */}
-            {isProcessing && (
-                <Box
-                    sx={{
-                        position: "fixed",
-                        top: 0,
-                        left: 0,
-                        right: 0,
-                        bottom: 0,
-                        bgcolor: "rgba(0,0,0,0.5)",
-                        display: "flex",
-                        alignItems: "center",
-                        justifyContent: "center",
-                        zIndex: 9999,
-                        backdropFilter: "blur(5px)",
-                    }}
-                >
-                    <Paper sx={{ p: 4, borderRadius: "24px", textAlign: "center", maxWidth: 400 }}>
-                        <CircularProgress size={60} sx={{ mb: 2 }} />
-                        <Typography variant="h6" sx={{ mb: 1, fontWeight: 700 }}>
-                            Extracting with Autoencoder
-                        </Typography>
-                        <Typography color="text.secondary">
-                            Extracting LSB bits • Descrambling • Verifying integrity • Reconstructing data
-                        </Typography>
-                    </Paper>
-                </Box>
-            )}
+            {
+                isProcessing && (
+                    <Box
+                        sx={{
+                            position: "fixed",
+                            top: 0,
+                            left: 0,
+                            right: 0,
+                            bottom: 0,
+                            bgcolor: "rgba(0,0,0,0.5)",
+                            display: "flex",
+                            alignItems: "center",
+                            justifyContent: "center",
+                            zIndex: 9999,
+                            backdropFilter: "blur(5px)",
+                        }}
+                    >
+                        <Paper sx={{ p: 4, borderRadius: "24px", textAlign: "center", maxWidth: 400 }}>
+                            <CircularProgress size={60} sx={{ mb: 2 }} />
+                            <Typography variant="h6" sx={{ mb: 1, fontWeight: 700 }}>
+                                Extracting with Autoencoder
+                            </Typography>
+                            <Typography color="text.secondary">
+                                Extracting LSB bits • Descrambling • Verifying integrity • Reconstructing data
+                            </Typography>
+                        </Paper>
+                    </Box>
+                )
+            }
 
             {/* Notifications */}
             <Snackbar

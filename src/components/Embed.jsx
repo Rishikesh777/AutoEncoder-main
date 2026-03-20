@@ -49,6 +49,7 @@ const Embed = () => {
     // FIX: Store the watermarked image base64 in component state (not localStorage)
     // so the user can download it directly without bloating localStorage.
     const [watermarkedImageBase64, setWatermarkedImageBase64] = useState(null);
+    const [encryptionPassword, setEncryptionPassword] = useState("");
 
     const fileInputRef = useRef(null);
     const secretFileInputRef = useRef(null);
@@ -129,6 +130,9 @@ const Embed = () => {
             const formData = new FormData();
             formData.append("image", imageFile);
             formData.append("data", dataToHide);
+            if (encryptionPassword.trim()) {
+                formData.append("encryption_password", encryptionPassword.trim());
+            }
 
             showNotification("Uploading image to autoencoder...", "info");
 
@@ -231,6 +235,7 @@ const Embed = () => {
         setResult(null);
         setError(null);
         setWatermarkedImageBase64(null);
+        setEncryptionPassword("");
         if (fileInputRef.current) fileInputRef.current.value = "";
     };
 
@@ -422,6 +427,26 @@ const Embed = () => {
                                         <Typography variant="caption" color="text.secondary" sx={{ mt: 0.5, display: "block" }}>
                                             Data will be compressed and encrypted before embedding
                                         </Typography>
+
+                                        {/* Encryption Password */}
+                                        <TextField
+                                            fullWidth
+                                            type="password"
+                                            label="Encryption Password (optional)"
+                                            placeholder="Set a password to protect the embedded data..."
+                                            variant="outlined"
+                                            value={encryptionPassword}
+                                            onChange={(e) => setEncryptionPassword(e.target.value)}
+                                            disabled={isProcessing}
+                                            sx={{
+                                                mt: 2,
+                                                "& .MuiOutlinedInput-root": {
+                                                    borderRadius: "16px",
+                                                    bgcolor: "#f8fafc",
+                                                },
+                                            }}
+                                            helperText="If set, data can only be read by someone with this password. Leave blank for no encryption."
+                                        />
                                         <input
                                             type="file"
                                             hidden

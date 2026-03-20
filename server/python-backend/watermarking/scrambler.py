@@ -28,19 +28,33 @@ class PRNGScrambler:
     
     def scramble_bits(self, bits: List[int]) -> List[int]:
         """
-        Scramble bits using PRNG
-        Returns scrambled bits and the permutation indices
+        Scramble bits deterministically from key + length.
+        Same key + same length always produces the same permutation.
+        No need to store indices externally.
         """
         n = len(bits)
+        seed_value = int(hashlib.sha256(
+            f"{self.key}:{n}".encode()
+        ).hexdigest(), 16) % (2**32)
+        rng = random.Random(seed_value)
         indices = list(range(n))
-        self.random.shuffle(indices)
-        
+        rng.shuffle(indices)
         scrambled = [bits[i] for i in indices]
         return scrambled, indices
-    
-    def descramble_bits(self, scrambled_bits: List[int], indices: List[int]) -> List[int]:
-        """Descramble bits using the same permutation"""
-        descrambled = [0] * len(scrambled_bits)
+
+    def descramble_bits(self, scrambled_bits: List[int], indices: List[int] = None) -> List[int]:
+        """
+        Descramble bits. Indices are rederived from key + length if not supplied.
+        """
+        n = len(scrambled_bits)
+        if indices is None:
+            seed_value = int(hashlib.sha256(
+                f"{self.key}:{n}".encode()
+            ).hexdigest(), 16) % (2**32)
+            rng = random.Random(seed_value)
+            indices = list(range(n))
+            rng.shuffle(indices)
+        descrambled = [0] * n
         for i, idx in enumerate(indices):
             descrambled[idx] = scrambled_bits[i]
         return descrambled
@@ -78,7 +92,10 @@ class ScramblerWithAuth:
         
         return scrambled, indices, session_key
     
-    def descramble_with_auth(self, scrambled_bits: List[int], indices: List[int], session_key: str) -> List[int]:
-        """Descramble using session key"""
+    def descramble_with_auth(self, scrambled_bits: List[int], session_key: str) -> List[int]:
+        """
+        Descramble using session key only.
+        Indices are rederived deterministically — no external storage needed.
+        """
         self.scrambler.set_key(session_key)
-        return self.scrambler.descramble_bits(scrambled_bits, indices)
+        return self.scrambler.descramble_bits(scrambled_bits)

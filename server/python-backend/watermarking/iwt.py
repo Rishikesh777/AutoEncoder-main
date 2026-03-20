@@ -18,7 +18,7 @@ import numpy as np
 from typing import List, Tuple
 
 from watermarking.huffman          import HuffmanCodec
-from watermarking.histogram_shift  import hs_embed, hs_extract, hs_capacity
+import base64
 
 
 class IWTEmbedder:
@@ -118,56 +118,191 @@ class IWTEmbedder:
         return np.clip(result, 0, 255).astype(np.uint8)
 
     # ------------------------------------------------------------------
-    #  embed_in_hh — Huffman-compress then histogram-shift embed
+    #  PEE embed — IWT → HH → Prediction Error Expansion → Inverse IWT
     # ------------------------------------------------------------------
     @staticmethod
     def embed_in_hh(
         carrier_image: np.ndarray,
         data_bytes: bytes,
-    ) -> Tuple[np.ndarray, int, List[tuple]]:
+    ) -> Tuple[np.ndarray, int, dict]:
         """
-        Huffman-compress *data_bytes* then embed via histogram shifting.
+        Embed data_bytes into the HH subband using Prediction Error Expansion (PEE).
+
+        Key design: embed only at ODD-indexed HH pixels, using EVEN-indexed
+        pixels as predictors. Even pixels are NEVER modified, so their values
+        are identical in both the original and stego arrays — guaranteeing that
+        the predictor value is always known exactly during extraction without
+        any cascading errors.
+
+        For odd pixel i:
+          pred = flat[i-1]   (even — never modified)
+          e    = flat[i] - pred
+          e==0  → embed bit: 0 stays 0, 1 becomes 1   (location_map[i]=1)
+          e==1  → shift to 2 to vacate the e=1 slot    (shift_map[i]=1)
+          else  → leave untouched
 
         Returns
         -------
-        watermarked : np.ndarray   watermarked image (uint8, same shape)
-        n_bits      : int          bits written
-        hs_rounds   : List[tuple]  HS metadata — save in MongoDB.
-                                   Format: [(peak, zero_val, side, n_bits), ...]
+        watermarked  : np.ndarray  stego image (uint8, same shape as input)
+        n_bits       : int         number of payload bits embedded
+        pee_metadata : dict        everything needed for extraction + restoration
         """
-        compressed_bits        = HuffmanCodec.encode(data_bytes)
-        watermarked, hs_rounds = hs_embed(carrier_image, compressed_bits)
-        return watermarked, len(compressed_bits), hs_rounds
+        original_shape = carrier_image.shape
+
+        # Step 1 — Forward IWT
+        LL, LH, HL, HH = IWTEmbedder.iwt2(carrier_image)
+        hh_shape = HH.shape
+        flat     = HH.astype(np.int32).flatten()
+        n        = len(flat)
+
+        # Step 2 — Huffman compress
+        compressed_bits = HuffmanCodec.encode(data_bytes)
+        n_bits_needed   = len(compressed_bits)
+        print(f"  PEE: payload = {n_bits_needed} bits after Huffman compression")
+
+        # Step 3 — PEE embed (odd indices only)
+        location_map  = np.zeros(n, dtype=np.uint8)  # 1 = bit embedded (e=0 expanded)
+        shift_map     = np.zeros(n, dtype=np.uint8)  # 1 = pixel shifted (e=1 → e=2)
+        modified_flat = flat.copy()
+        bit_idx       = 0
+
+        for i in range(1, n, 2):   # ODD indices only
+            if bit_idx >= n_bits_needed:
+                break
+            pred = flat[i - 1]     # EVEN predictor — never modified
+            e    = flat[i] - pred
+
+            if e == 0:
+                # Expand: embed bit by shifting e from 0 to 0 or 1
+                modified_flat[i] = pred + compressed_bits[bit_idx]
+                location_map[i]  = 1
+                bit_idx         += 1
+            elif e == 1:
+                # Shift e=1 → e=2 to vacate the embedding slot
+                modified_flat[i] = flat[i] + 1
+                shift_map[i]     = 1
+
+        n_bits_embedded = bit_idx
+        print(f"  PEE: embedded {n_bits_embedded} / {n_bits_needed} bits")
+        if n_bits_embedded < n_bits_needed:
+            raise ValueError(
+                f"PEE capacity insufficient: needed {n_bits_needed} bits, "
+                f"only {n_bits_embedded} available. Use a larger image or shorter data."
+            )
+
+        # Step 4 — Reconstruct IWT array with modified HH
+        new_HH = modified_flat.reshape(hh_shape).astype(np.int32)
+
+        # Step 5 — Inverse IWT → stego image
+        stego = IWTEmbedder.iiwt2(LL, LH, HL, new_HH, original_shape)
+
+        # Encode maps as base64 for MongoDB storage
+        location_b64 = base64.b64encode(np.packbits(location_map).tobytes()).decode()
+        shift_b64    = base64.b64encode(np.packbits(shift_map).tobytes()).decode()
+
+        pee_metadata = {
+            'n_bits_embedded':  n_bits_embedded,
+            'n_pixels':         n,
+            'hh_shape':         list(hh_shape),
+            'original_shape':   list(original_shape),
+            'location_map_b64': location_b64,
+            'shift_map_b64':    shift_b64,
+        }
+
+        return stego, n_bits_embedded, pee_metadata
 
     # ------------------------------------------------------------------
-    #  extract_from_hh — histogram-shift extract + Huffman decode
+    #  PEE extract — Inverse of embed_in_hh
     # ------------------------------------------------------------------
     @staticmethod
     def extract_from_hh(
         watermarked_image: np.ndarray,
-        hs_rounds: List[tuple],
+        pee_metadata: dict,
     ) -> Tuple[bytes, np.ndarray]:
         """
-        Extract payload and restore the original image pixel-perfectly.
+        Extract embedded payload and restore the original image pixel-perfectly.
+
+        Pipeline (reverse of embed):
+            1. Forward IWT on stego image → get modified HH
+            2. Using location_map and overflow_map, extract bits and undo expansion
+            3. Using overflow_map, undo the shifts on overflow pixels
+            4. Reconstruct original HH → Inverse IWT → original image
 
         Returns
         -------
-        payload  : bytes         recovered payload bytes
+        payload  : bytes         recovered payload bytes (Huffman-encoded bits decoded)
         restored : np.ndarray    original image — pixel-perfect
         """
-        total_bits         = sum(r[3] for r in hs_rounds)
-        all_bits, restored = hs_extract(watermarked_image, hs_rounds)
-        payload_bytes      = HuffmanCodec.decode(all_bits[:total_bits])
+        n_bits_embedded = pee_metadata['n_bits_embedded']
+        n_pixels        = pee_metadata['n_pixels']
+        hh_shape        = tuple(pee_metadata['hh_shape'])
+        original_shape  = tuple(pee_metadata['original_shape'])
+
+        # Decode maps from base64
+        location_packed = np.frombuffer(
+            base64.b64decode(pee_metadata['location_map_b64']), dtype=np.uint8)
+        shift_packed    = np.frombuffer(
+            base64.b64decode(pee_metadata['shift_map_b64']), dtype=np.uint8)
+        location_map    = np.unpackbits(location_packed)[:n_pixels]
+        shift_map       = np.unpackbits(shift_packed)[:n_pixels]
+
+        # Step 1 — Forward IWT on stego image
+        LL, LH, HL, HH_stego = IWTEmbedder.iwt2(watermarked_image)
+        flat_stego    = HH_stego.astype(np.int32).flatten()
+        restored_flat = flat_stego.copy()
+
+        # Step 2 — Extract bits and undo modifications (odd indices only)
+        # Even pixels are predictor-only and were never modified during embed,
+        # so flat_stego[i-1] == flat_orig[i-1] always — no cascade errors.
+        extracted_bits = []
+
+        for i in range(1, n_pixels, 2):   # ODD indices only — mirrors embed
+            pred = flat_stego[i - 1]      # EVEN predictor — identical to original
+            e    = flat_stego[i] - pred
+
+            if location_map[i] == 1:
+                # Bit was embedded at this position
+                # e==0 → bit=0 was embedded, e==1 → bit=1 was embedded
+                extracted_bits.append(1 if e == 1 else 0)
+                restored_flat[i] = pred   # restore: original error was 0 → orig = pred
+            elif shift_map[i] == 1:
+                # Pixel was shifted e=1 → e=2 to make room, undo by subtracting 1
+                restored_flat[i] = flat_stego[i] - 1
+            # else: pixel untouched — restored_flat[i] stays as flat_stego[i]
+
+        # Decode Huffman
+        payload_bytes = HuffmanCodec.decode(extracted_bits[:n_bits_embedded])
+
+        # Step 3 — Reconstruct original HH and Inverse IWT
+        orig_HH  = restored_flat.reshape(hh_shape).astype(np.int32)
+        restored = IWTEmbedder.iiwt2(LL, LH, HL, orig_HH, original_shape)
+
         return payload_bytes, restored
 
     # ------------------------------------------------------------------
-    #  get_capacity — estimated safe byte capacity via HS
+    #  get_capacity — estimated safe byte capacity via PEE on HH
     # ------------------------------------------------------------------
     @staticmethod
     def get_capacity(image: np.ndarray) -> int:
-        """Estimate safe embedding capacity in BYTES using histogram shifting."""
-        bits = hs_capacity(image, n_rounds=5)
-        return max(0, int(bits * 0.9) // 8)
+        """
+        Estimate safe embedding capacity in BYTES using PEE on the HH subband.
+        Counts ODD-indexed HH pixels where prediction error == 0 (embeddable).
+        Takes 80% as a conservative safe estimate to account for Huffman overhead.
+        """
+        try:
+            _, _, _, HH = IWTEmbedder.iwt2(image)
+            flat = HH.astype(np.int32).flatten()
+            n    = len(flat)
+            # Count odd-indexed pixels where e==0 (the actual embeddable positions)
+            zero_errors = sum(
+                1 for i in range(1, n, 2)
+                if flat[i] - flat[i - 1] == 0
+            )
+            safe_bits = int(zero_errors * 0.8)
+            return max(0, int(safe_bits * 0.9) // 8)
+        except Exception:
+            # If IWT fails, return zero capacity
+            return 0
 
 
 class AdaptiveIWTEmbedder:

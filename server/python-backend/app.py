@@ -15,6 +15,11 @@ import pymongo
 from bson import ObjectId
 from dotenv import load_dotenv
 from datetime import datetime
+import hashlib
+from cryptography.hazmat.primitives.kdf.pbkdf2 import PBKDF2HMAC
+from cryptography.hazmat.primitives import hashes, padding
+from cryptography.hazmat.primitives.ciphers import Cipher, algorithms, modes
+from cryptography.hazmat.backends import default_backend
 
 # ── path setup ──────────────────────────────────────────────────────────────
 current_dir = os.path.dirname(os.path.abspath(__file__))
@@ -107,6 +112,54 @@ scrambler = ScramblerWithAuth(MASTER_KEY)
 
 
 # ═══════════════════════════════════════════════════════════════════════════════
+#  AES-256 ENCRYPTION HELPERS
+#  Key is derived from user password via PBKDF2 — never stored anywhere.
+#  Salt is fixed per-installation (stored in env) so the same password always
+#  produces the same key. IV is random per-operation and prepended to ciphertext.
+# ═══════════════════════════════════════════════════════════════════════════════
+AES_SALT = os.getenv("AES_SALT", "autoencoder_portal_salt_2024").encode()
+
+def derive_aes_key(password: str) -> bytes:
+    """Derive a 32-byte AES-256 key from a password using PBKDF2."""
+    kdf = PBKDF2HMAC(
+        algorithm=hashes.SHA256(),
+        length=32,
+        salt=AES_SALT,
+        iterations=100_000,
+        backend=default_backend()
+    )
+    return kdf.derive(password.encode())
+
+def aes_encrypt(plaintext: bytes, password: str) -> bytes:
+    """
+    AES-256-CBC encrypt. Returns IV (16 bytes) + ciphertext.
+    The IV is random per call so each encryption is unique.
+    """
+    key = derive_aes_key(password)
+    iv  = os.urandom(16)
+    padder    = padding.PKCS7(128).padder()
+    padded    = padder.update(plaintext) + padder.finalize()
+    cipher    = Cipher(algorithms.AES(key), modes.CBC(iv), backend=default_backend())
+    encryptor = cipher.encryptor()
+    ciphertext = encryptor.update(padded) + encryptor.finalize()
+    return iv + ciphertext   # prepend IV for use during decryption
+
+def aes_decrypt(ciphertext_with_iv: bytes, password: str) -> bytes:
+    """
+    AES-256-CBC decrypt. Expects IV prepended to ciphertext (as produced by aes_encrypt).
+    Raises ValueError if password is wrong (padding error).
+    """
+    key = derive_aes_key(password)
+    iv         = ciphertext_with_iv[:16]
+    ciphertext = ciphertext_with_iv[16:]
+    cipher     = Cipher(algorithms.AES(key), modes.CBC(iv), backend=default_backend())
+    decryptor  = cipher.decryptor()
+    padded     = decryptor.update(ciphertext) + decryptor.finalize()
+    unpadder   = padding.PKCS7(128).unpadder()
+    return unpadder.update(padded) + unpadder.finalize()
+
+
+# ═══════════════════════════════════════════════════════════════════════════════
 #  ROUTES
 # ═══════════════════════════════════════════════════════════════════════════════
 
@@ -120,17 +173,23 @@ async def root():
 # ────────────────────────────────────────────────────────────────────────────
 @app.post("/api/autoencoder/embed")
 async def embed_data(
-    image:   UploadFile = File(...),
-    data:    str        = Form(...),
-    user_id: str        = Form(None),
+    image:                UploadFile = File(...),
+    data:                 str        = Form(...),
+    user_id:              str        = Form(None),
+    encryption_password:  str        = Form(None),
 ):
     """
-    Embed user data into image via Huffman + Histogram Shifting.
+    Embed user data into image via IWT + PEE on HH subband (odd-index, even predictors).
 
-    NEW in this version:
-        Step 8 — compute PSNR/SSIM between original carrier and watermarked image.
-                 Returns finite values (typically 48-55 dB PSNR, SSIM ≈ 0.999).
-                 Proves the watermark is visually imperceptible.
+    Pipeline:
+        1. Grayscale + clip
+        2. Autoencoder tag (double-pass)
+        3. Blake3 tag hash + image integrity hash
+        4. AES-encrypt user data (if password provided)
+        5. Build payload bytes
+        6. PRNG scramble
+        7. IWT → HH → PEE embed → Inverse IWT  (replaces spatial HS)
+        8. PSNR/SSIM quality metrics
     """
     try:
         if model is None:
@@ -169,7 +228,15 @@ async def embed_data(
         image_hash = hash_image_pixels(carrier_array.astype(np.uint8))
 
         # Step 5 — payload bytes
-        user_data_bytes = data.encode('utf-8')
+        # If an encryption password is provided, AES-256-CBC encrypt the user
+        # data before embedding. Without the password, extracted bytes are
+        # unreadable ciphertext — no external key storage needed.
+        raw_user_bytes  = data.encode('utf-8')
+        is_encrypted    = bool(encryption_password)
+        if is_encrypted:
+            raw_user_bytes = aes_encrypt(raw_user_bytes, encryption_password)
+            print(f"🔒 User data AES-encrypted ({len(raw_user_bytes)} bytes)")
+        user_data_bytes = raw_user_bytes
         tag_bytes       = autoencoder_tag.encode('ascii')
         hash_bytes_enc  = tag_hash.encode('ascii')
         image_hash_enc  = image_hash.encode('ascii')
@@ -191,7 +258,8 @@ async def embed_data(
         # Step 6 — PRNG scramble
         auth_result  = AuthenticationTagGenerator.generate_tag(data, autoencoder_tag)
         payload_bits = [int(b) for byte in raw_payload for b in format(byte, '08b')]
-        scrambled_bits, indices, session_key = scrambler.scramble_with_auth(
+        # indices are no longer stored — rederived from session_key at extraction time
+        scrambled_bits, _indices, session_key = scrambler.scramble_with_auth(
             payload_bits, auth_result['auth_tag']
         )
         scrambled_bytes = bytes(
@@ -207,10 +275,10 @@ async def embed_data(
         # Stored in MongoDB so extract can compute round-trip PSNR (should be ∞).
         original_carrier = carrier_array.astype(np.uint8).copy()
 
-        watermarked_array, embedded_bits, hs_rounds = IWTEmbedder.embed_in_hh(
+        watermarked_array, embedded_bits, pee_metadata = IWTEmbedder.embed_in_hh(
             original_carrier, scrambled_bytes
         )
-        print(f"💧 HS-embedded {embedded_bits} bits across {len(hs_rounds)} round(s)")
+        print(f"💧 PEE-embedded {embedded_bits} bits into HH subband (IWT domain)")
 
         # Encode original_carrier as base64 PNG for MongoDB storage.
         orig_buf = io.BytesIO()
@@ -246,15 +314,15 @@ async def embed_data(
             'auth_tag':              tag_hash,
             'image_hash':            image_hash,
             'session_key':           session_key,
-            'scramble_indices':      indices,
+            'is_encrypted':          is_encrypted,
             'total_bits':            embedded_bits,
             'raw_payload_bytes':     len(raw_payload),
             'user_data_bytes':       len(user_data_bytes),
-            'encoding':              'huffman+hs',
-            'hs_rounds':             hs_rounds,
+            'encoding':              'huffman+pee_iwt',
+            'pee_metadata':          pee_metadata,
             'image_shape':           list(carrier_array.shape),
             'original_size':         list(original_size),
-            'subband':               'spatial_hs',
+            'subband':               'HH_IWT',
             'quality_metrics':       quality_metrics,
             'created_at':            datetime.utcnow(),
         }
@@ -272,9 +340,9 @@ async def embed_data(
             'metadata': {
                 'total_bits':                    embedded_bits,
                 'raw_payload_bytes':             len(raw_payload),
-                'encoding':                      'huffman+hs',
-                'hs_rounds':                     len(hs_rounds),
-                'subband':                       'spatial_hs',
+                'encoding':                      'huffman+pee_iwt',
+                'pee_rounds':                    pee_metadata.get('n_bits_embedded', 0),
+                'subband':                       'HH_IWT',
                 'original_size':                 f"{original_size[0]}x{original_size[1]}",
                 'embedding_rate':                f"{embedded_bits / (carrier_array.shape[0] * carrier_array.shape[1]):.4f} bpp",
                 'psnr_original_vs_watermarked':  quality_metrics['psnr_display'],
@@ -296,19 +364,14 @@ async def embed_data(
 # ────────────────────────────────────────────────────────────────────────────
 @app.post("/api/autoencoder/extract")
 async def extract_data(
-    image:       UploadFile = File(...),
-    image_id:    str        = Form(None),
-    session_key: str        = Form(None),
+    image:                UploadFile = File(...),
+    image_id:             str        = Form(None),
+    session_key:          str        = Form(None),
+    encryption_password:  str        = Form(None),
 ):
     """
-    Extract and verify data embedded via Huffman + Histogram Shifting.
-
-    NEW in this version:
-        Step 7 — compute PSNR/SSIM between watermarked input and restored image.
-                 Expected result for a successful lossless extraction:
-                   PSNR = ∞  (infinity, MSE = 0)
-                   SSIM = 1.0 (pixel-identical)
-                 Any deviation indicates the restoration was not pixel-perfect.
+    Extract and verify data embedded via IWT + PEE on HH subband.
+    Uses location_map and shift_map from pee_metadata for pixel-perfect restoration.
     """
     try:
         print(f"\n{'='*50}\nEXTRACT REQUEST RECEIVED\n{'='*50}")
@@ -333,9 +396,9 @@ async def extract_data(
         expected_auth_tag         = None
         expected_autoencoder_tag  = None
         expected_session_key      = None
-        expected_scramble_indices = None
-        expected_hs_rounds        = None
+        expected_pee_metadata     = None
         expected_image_hash       = None
+        expected_is_encrypted     = False
 
         if image_id:
             print(f"\n--- Looking up image_id: {image_id} ---")
@@ -348,9 +411,10 @@ async def extract_data(
                         expected_auth_tag         = doc.get('auth_tag')
                         expected_autoencoder_tag  = doc.get('autoencoder_tag')
                         expected_session_key      = doc.get('session_key')
-                        expected_scramble_indices = doc.get('scramble_indices')
-                        expected_hs_rounds        = doc.get('hs_rounds')
+                        expected_pee_metadata     = doc.get('pee_metadata')
+                        expected_raw_payload_bytes = doc.get('raw_payload_bytes')
                         expected_image_hash       = doc.get('image_hash')
+                        expected_is_encrypted     = doc.get('is_encrypted', False)
                         if not session_key and expected_session_key:
                             session_key = expected_session_key
                             print("  Using session_key from DB")
@@ -363,35 +427,35 @@ async def extract_data(
             raise HTTPException(status_code=400, detail=(
                 "Session key is required for extraction but was not found."
             ))
-        if image_id and not expected_scramble_indices:
+        if not expected_pee_metadata:
             raise HTTPException(status_code=400, detail=(
-                "Scramble indices not found in the database for this image_id."
-            ))
-        if not expected_hs_rounds:
-            raise HTTPException(status_code=400, detail=(
-                "Histogram shifting rounds (hs_rounds) not found. "
-                "Please re-embed the image with the current version."
+                "PEE metadata not found for this image. "
+                "Please re-embed the image — old records used histogram shifting and are incompatible."
             ))
 
-        # HS extract + pixel-perfect image restoration
-        print("\n--- HS extract + image restoration ---")
+        # PEE extract + pixel-perfect image restoration
+        print("\n--- PEE extract (IWT domain) + image restoration ---")
         try:
             scrambled_bytes_out, restored_image = IWTEmbedder.extract_from_hh(
-                img_array, expected_hs_rounds
+                img_array, expected_pee_metadata
             )
-            print(f"✓ HS extracted: {len(scrambled_bytes_out)} bytes")
+            print(f"✓ PEE extracted: {len(scrambled_bytes_out)} bytes")
             print(f"✓ Restored image shape: {restored_image.shape}")
         except Exception as e:
-            raise HTTPException(status_code=500, detail=f"Histogram shifting extraction failed: {e}")
+            raise HTTPException(status_code=500, detail=f"PEE extraction failed: {e}")
 
         # Descramble
+        # Descramble using exact bit-length (multiple of 8, from raw_payload_bytes)
         extracted_bits   = [int(b) for byte in scrambled_bytes_out for b in format(byte, '08b')]
         descrambled_bits = extracted_bits
-
-        if expected_scramble_indices and session_key:
+        if session_key:
             try:
+                # TRUNCATE to exact payload bits to avoid scrambling trash from Huffman padding
+                target_bits = (expected_raw_payload_bytes * 8) if expected_raw_payload_bytes else len(extracted_bits)
+                bits_to_descramble = extracted_bits[:target_bits]
+                
                 descrambled_bits = scrambler.descramble_with_auth(
-                    extracted_bits, expected_scramble_indices, session_key
+                    bits_to_descramble, session_key
                 )
                 print(f"✓ Descrambling successful ({len(descrambled_bits)} bits)")
             except Exception as e:
@@ -416,6 +480,17 @@ async def extract_data(
             user_len             = int.from_bytes(descrambled_payload[:2], 'big')
             user_bytes           = descrambled_payload[2: 2 + user_len]
             tag_start            = 2 + user_len
+            # Decrypt user data if it was encrypted during embedding
+            if expected_is_encrypted and encryption_password:
+                try:
+                    user_bytes = aes_decrypt(bytes(user_bytes), encryption_password)
+                    print("🔓 User data decrypted successfully")
+                except Exception:
+                    user_bytes = b"[Wrong password - cannot decrypt data]"
+                    print("⚠ Decryption failed — wrong password")
+            elif expected_is_encrypted and not encryption_password:
+                user_bytes = b"[Password required to decrypt this data]"
+                print("⚠ Data is encrypted but no password provided")
             extracted_user_data  = user_bytes.decode('utf-8', errors='replace')
             extracted_tag        = descrambled_payload[tag_start:       tag_start + 128].decode('ascii', errors='replace')
             extracted_hash       = descrambled_payload[tag_start + 128: tag_start + 192].decode('ascii', errors='replace')
@@ -521,7 +596,7 @@ async def extract_data(
             'restored_image_hash':   restored_image_hash,
             'embedded_image_hash':   extracted_image_hash,
             'verification_status':   'pending',
-            'subband_used':          'spatial_hs',
+            'subband_used':          'HH_IWT',
         }
 
         if extracted_tag and extracted_hash:
@@ -530,15 +605,23 @@ async def extract_data(
             print(f"  Level 2 — Image hash:       {'✓' if image_integrity_valid else '✗'}")
             print(f"  Level 3 — DB tag match:     {'✓' if tag_match_db else '✗'}")
 
-            if tag_valid and image_integrity_valid:
-                verification_result['verification_status'] = 'verified'
-                verification_result['message'] = '✅ All verifications passed — image is authentic and unmodified'
-            elif tag_valid and not image_integrity_valid:
-                verification_result['verification_status'] = 'tampered'
-                verification_result['message'] = '❌ Image has been tampered with — pixel hash mismatch'
-            else:
-                verification_result['verification_status'] = 'tampered'
-                verification_result['message'] = '❌ Payload integrity check failed — data corrupted or wrong key'
+            if not tag_valid:
+                # Payload corrupted — extraction itself failed
+                raise HTTPException(
+                    status_code=400,
+                    detail="CORRUPTED: payload integrity check failed — data corrupted or wrong session key"
+                )
+
+            if tag_valid and not image_integrity_valid:
+                # Change 2: Hard fail on tamper — refuse extraction entirely
+                raise HTTPException(
+                    status_code=400,
+                    detail="TAMPERED: image pixel hash mismatch — the stego image has been modified externally. Extraction refused to protect data integrity."
+                )
+
+            # Only reaches here if both checks pass
+            verification_result['verification_status'] = 'verified'
+            verification_result['message'] = '✅ All verifications passed — image is authentic and unmodified'
 
         print(f"\n  Final status: {verification_result['verification_status']}")
 
@@ -552,13 +635,14 @@ async def extract_data(
             'image_integrity_valid': image_integrity_valid,
             'quality_metrics':       quality_metrics,
             'verification':          verification_result,
+            'session_key':           session_key,
             'metadata': {
                 'extraction_time':                  '320ms',
                 'data_size':                        len(extracted_user_data),
                 'bytes_extracted':                  len(scrambled_bytes_out),
-                'encoding':                         'huffman+hs',
-                'hs_rounds':                        len(expected_hs_rounds),
-                'subband_used':                     'spatial_hs',
+                'encoding':                         'huffman+pee_iwt',
+                'pee_bits_embedded':                expected_pee_metadata.get('n_bits_embedded', 0) if expected_pee_metadata else 0,
+                'subband_used':                     'HH_IWT',
                 'image_restored':                   True,
                 'image_integrity_check':            'passed' if image_integrity_valid else 'FAILED',
                 'psnr_watermarked_vs_restored':     quality_metrics_wm_vs_restored.get('psnr_display') if quality_metrics_wm_vs_restored else None,

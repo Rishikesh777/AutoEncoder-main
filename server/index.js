@@ -341,7 +341,7 @@ app.post('/api/autoencoder/embed', authMiddleware, upload.single('image'), async
             return res.status(400).json({ message: 'Image file is required' });
         }
 
-        const { data } = req.body;
+        const { data, encryption_password } = req.body;
         if (!data) {
             return res.status(400).json({ message: 'Data to embed is required' });
         }
@@ -357,6 +357,9 @@ app.post('/api/autoencoder/embed', authMiddleware, upload.single('image'), async
         });
         formData.append('data', data);
         formData.append('user_id', req.user.id);
+        if (encryption_password) {
+            formData.append('encryption_password', encryption_password);
+        }
 
         const response = await fetchWithTimeout(
             `${PYTHON_BACKEND}/api/autoencoder/embed`,
@@ -426,7 +429,7 @@ app.post('/api/autoencoder/extract', authMiddleware, upload.single('image'), asy
             return res.status(400).json({ message: 'Image file is required' });
         }
 
-        const { image_id, session_key } = req.body;
+        const { image_id, session_key, encryption_password } = req.body;
 
         console.log('=== EXTRACT REQUEST ===');
         console.log(`User: ${req.user.id}`);
@@ -448,7 +451,12 @@ app.post('/api/autoencoder/extract', authMiddleware, upload.single('image'), asy
             formData.append('session_key', session_key);
         }
 
+        if (encryption_password) {
+            formData.append('encryption_password', encryption_password);
+        }
+
         console.log('Forwarding to Python backend...');
+        console.log('Fields:', { image_id, session_key_exists: !!session_key, password_exists: !!encryption_password });
 
         const response = await fetchWithTimeout(
             `${PYTHON_BACKEND}/api/autoencoder/extract`,
@@ -464,12 +472,17 @@ app.post('/api/autoencoder/extract', authMiddleware, upload.single('image'), asy
         try {
             result = JSON.parse(responseText);
         } catch (e) {
-            console.error('Failed to parse Python response as JSON:', responseText.substring(0, 200));
-            throw new Error('Python backend returned invalid JSON');
+            console.error('Failed to parse Python response as JSON. Status:', response.status);
+            console.error('Response preview:', responseText.substring(0, 500));
+            return res.status(500).json({
+                success: false,
+                message: 'Python backend crashed or returned non-JSON error',
+                error: `HTTP ${response.status}: ${responseText.substring(0, 200)}...`
+            });
         }
 
         if (!response.ok) {
-            throw new Error(result.detail || result.message || 'Python backend error');
+            return res.status(response.status).json(result);
         }
 
         console.log('Extraction successful');
