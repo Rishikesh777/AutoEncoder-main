@@ -63,10 +63,10 @@ function Home({ setActivePage }) {
       {/* Hero Section */}
       <Box
         sx={{
-          background: "linear-gradient(135deg, #0d47a1 0%, #1976d2 100%)",
-          color: "white",
-          pt: { xs: 12, md: 20 },
-          pb: { xs: 12, md: 20 },
+          background: "radial-gradient(circle at 20% 30%, #112d4e 0%, #08121f 100%)",
+          color: "#e6f1ff",
+          pt: { xs: 15, md: 22 },
+          pb: { xs: 15, md: 22 },
           position: "relative",
           overflow: "hidden",
         }}
@@ -85,7 +85,7 @@ function Home({ setActivePage }) {
                 }}
               >
                 Secure Reversible <br />
-                <span style={{ color: "#ffeb3b" }}>Data Hiding Tool</span>
+                <span style={{ color: "#ffd60a" }}>Data Hiding Tool</span>
               </Typography>
               <Typography variant="h5" sx={{ mb: 5, opacity: 0.9, fontWeight: 400, maxWidth: "600px" }}>
                 Hide sensitive information inside images and retrieve it securely with
@@ -97,14 +97,14 @@ function Home({ setActivePage }) {
                   size="large"
                   onClick={() => setActivePage("embed")}
                   sx={{
-                    bgcolor: "white",
-                    color: "#1976d2",
+                    bgcolor: "#00d4ff",
+                    color: "#020c1b",
                     px: 6,
-                    py: 2,
+                    py: 1.8,
                     fontSize: "1.1rem",
                     fontWeight: 700,
                     borderRadius: "12px",
-                    "&:hover": { bgcolor: "#f5f5f5", transform: "translateY(-2px)" },
+                    "&:hover": { bgcolor: "#33ddff", transform: "translateY(-2px)", boxShadow: "0 8px 20px rgba(0, 212, 255, 0.3)" },
                     transition: "all 0.3s ease",
                   }}
                 >
@@ -115,15 +115,15 @@ function Home({ setActivePage }) {
                   size="large"
                   onClick={() => setActivePage("extract")}
                   sx={{
-                    borderColor: "rgba(255,255,255,0.5)",
-                    color: "white",
+                    borderColor: "#00d4ff",
+                    color: "#00d4ff",
                     px: 6,
-                    py: 2,
+                    py: 1.8,
                     fontSize: "1.1rem",
                     fontWeight: 700,
                     borderRadius: "12px",
                     borderWidth: 2,
-                    "&:hover": { borderColor: "white", bgcolor: "rgba(255,255,255,0.1)", transform: "translateY(-2px)" },
+                    "&:hover": { borderColor: "#33ddff", bgcolor: "rgba(0, 212, 255, 0.05)", transform: "translateY(-2px)" },
                     transition: "all 0.3s ease",
                   }}
                 >
@@ -136,51 +136,55 @@ function Home({ setActivePage }) {
       </Box>
 
       {/* How It Works */}
-      <Container maxWidth="lg" sx={{ py: 12 }}>
-        <Typography variant="h2" align="center" sx={{ mb: 8, fontWeight: 800 }}>
-          How It Works
-        </Typography>
-        <Grid container spacing={4}>
-          {steps.map((step, index) => (
-            <Grid item xs={12} md={4} key={index}>
-              <Box
-                sx={{
-                  p: 4,
-                  height: "100%",
-                  textAlign: "center",
-                  borderRadius: "24px",
-                  background: "white",
-                  boxShadow: "0 10px 40px rgba(0,0,0,0.05)",
-                  border: "1px solid #f0f0f0",
-                  transition: "transform 0.3s ease",
-                  "&:hover": { transform: "translateY(-10px)" },
-                }}
-              >
-                <Avatar
+      <Box sx={{ background: "linear-gradient(to bottom, #0a192f, #08121f)", py: 12 }}>
+        <Container maxWidth="lg">
+          <Typography variant="h2" align="center" sx={{ mb: 8, fontWeight: 800, color: "#e6f1ff" }}>
+            How It Works
+          </Typography>
+          <Grid container spacing={4}>
+            {steps.map((step, index) => (
+              <Grid item xs={12} md={4} key={index}>
+                <Box
                   sx={{
-                    width: 100,
-                    height: 100,
-                    margin: "0 auto 24px",
-                    bgcolor: "rgba(25, 118, 210, 0.1)",
-                    color: "#1976d2",
+                    p: 4,
+                    height: "100%",
+                    textAlign: "center",
+                    borderRadius: "24px",
+                    background: "rgba(255, 255, 255, 0.04)",
+                    backdropFilter: "blur(10px)",
+                    boxShadow: "0 0 15px rgba(0, 212, 255, 0.05)",
+                    border: "1px solid rgba(0, 212, 255, 0.15)",
+                    transition: "all 0.3s ease",
+                    "&:hover": { transform: "translateY(-10px)", borderColor: "rgba(0, 212, 255, 0.4)", boxShadow: "0 0 25px rgba(0, 212, 255, 0.1)" },
                   }}
                 >
-                  {step.icon}
-                </Avatar>
-                <Typography variant="h5" sx={{ mb: 2, fontWeight: 700 }}>
-                  {step.title}
-                </Typography>
-                <Typography variant="body1" color="text.secondary">
-                  {step.desc}
-                </Typography>
-              </Box>
-            </Grid>
-          ))}
-        </Grid>
-      </Container>
+                  <Avatar
+                    sx={{
+                      width: 100,
+                      height: 100,
+                      margin: "0 auto 24px",
+                      bgcolor: "rgba(0, 212, 255, 0.1)",
+                      color: "#00d4ff",
+                      boxShadow: "0 0 15px rgba(0, 212, 255, 0.15)",
+                    }}
+                  >
+                    {step.icon}
+                  </Avatar>
+                  <Typography variant="h5" sx={{ mb: 2, fontWeight: 700, color: "#e6f1ff" }}>
+                    {step.title}
+                  </Typography>
+                  <Typography variant="body1" sx={{ color: "#8892b0" }}>
+                    {step.desc}
+                  </Typography>
+                </Box>
+              </Grid>
+            ))}
+          </Grid>
+        </Container>
+      </Box>
 
       {/* Features section */}
-      <Box sx={{ bgcolor: "#f5f9ff", py: 12 }}>
+      <Box sx={{ bgcolor: "transparent", py: 12 }}>
         <Container maxWidth="lg">
           <Typography variant="h2" align="center" sx={{ mb: 8, fontWeight: 800 }}>
             Core Features
@@ -194,16 +198,21 @@ function Home({ setActivePage }) {
                     p: 4,
                     height: "100%",
                     borderRadius: "20px",
-                    border: "1px solid rgba(0,0,0,0.05)",
+                    background: "rgba(255, 255, 255, 0.04)",
+                    border: "1px solid rgba(0, 212, 255, 0.15)",
                     transition: "all 0.3s",
-                    "&:hover": { boxShadow: "0 20px 50px rgba(0,0,0,0.1)" },
+                    "&:hover": { 
+                      boxShadow: "0 0 25px rgba(0, 212, 255, 0.1)", 
+                      transform: "translateY(-5px)", 
+                      borderColor: "rgba(0, 212, 255, 0.4)" 
+                    },
                   }}
                 >
-                  <Box sx={{ color: "#1976d2", mb: 2 }}>{feature.icon}</Box>
-                  <Typography variant="h5" sx={{ mb: 2, fontWeight: 700 }}>
+                  <Box sx={{ color: "#00d4ff", mb: 2 }}>{feature.icon}</Box>
+                  <Typography variant="h5" sx={{ mb: 2, fontWeight: 700, color: "#e6f1ff" }}>
                     {feature.title}
                   </Typography>
-                  <Typography variant="body1" color="text.secondary">
+                  <Typography variant="body1" sx={{ color: "#8892b0" }}>
                     {feature.description}
                   </Typography>
                 </Card>

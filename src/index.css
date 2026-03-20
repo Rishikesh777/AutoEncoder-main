@@ -1,3 +1,17 @@
+:root {
+  --primary: #0a192f;
+  --secondary: #112d4e;
+  --accent: #00d4ff;
+  --highlight: #ffd60a;
+  --text: #e6f1ff;
+  --text-muted: #8892b0;
+  --background: #08121f;
+  --card-bg: rgba(255, 255, 255, 0.04);
+  --card-border: rgba(0, 212, 255, 0.15);
+  --bg-gradient: linear-gradient(135deg, #08121f 0%, #0a192f 100%);
+  --glow-cyan: 0 0 15px rgba(0, 212, 255, 0.1);
+}
+
 * {
   margin: 0;
   padding: 0;
@@ -8,6 +22,12 @@ html,
 body,
 #root {
   height: 100%;
-  font-family: Arial, sans-serif;
-  background: linear-gradient(135deg, #ffffff, #e3f2fd, #f8f9fa);
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', sans-serif;
+  background-color: var(--background);
+  color: var(--text);
+}
+
+body {
+  background: var(--bg-gradient);
+  background-attachment: fixed;
 }

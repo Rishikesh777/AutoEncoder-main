@@ -93,7 +93,7 @@ const History = () => {
         <Box sx={{ width: "100%", py: 4 }}>
             <Box sx={{ display: "flex", justifyContent: "space-between", alignItems: "center", mb: 4 }}>
                 <Box>
-                    <Typography variant="h2" sx={{ fontWeight: 800, mb: 1, color: "#1a365d" }}>
+                    <Typography variant="h2" sx={{ fontWeight: 800, mb: 1, color: "#e6f1ff" }}>
                         Operation History
                     </Typography>
                     <Typography variant="body1" color="text.secondary">
@@ -120,19 +120,20 @@ const History = () => {
                 sx={{
                     borderRadius: "20px",
                     overflow: "auto",
-                    border: "1px solid #e2e8f0",
-                    boxShadow: "0 4px 20px rgba(0,0,0,0.05)",
+                    bgcolor: "#0a192f",
+                    border: "1px solid rgba(0, 212, 255, 0.1)",
+                    boxShadow: "0 4px 20px rgba(0,0,0,0.2)",
                 }}
             >
                 <Table sx={{ minWidth: 800 }}>
-                    <TableHead sx={{ bgcolor: "#f8fafc" }}>
+                    <TableHead sx={{ bgcolor: "rgba(0, 212, 255, 0.05)" }}>
                         <TableRow>
-                            <TableCell sx={{ fontWeight: 700, color: "#475569" }}>ID</TableCell>
-                            <TableCell sx={{ fontWeight: 700, color: "#475569" }}>Date & Time</TableCell>
-                            <TableCell sx={{ fontWeight: 700, color: "#475569" }}>Operation</TableCell>
-                            <TableCell sx={{ fontWeight: 700, color: "#475569" }}>Target Image</TableCell>
-                            <TableCell sx={{ fontWeight: 700, color: "#475569" }}>Status</TableCell>
-                            <TableCell align="center" sx={{ fontWeight: 700, color: "#475569", minWidth: 150 }}>
+                            <TableCell sx={{ fontWeight: 700, color: "#8892b0" }}>ID</TableCell>
+                            <TableCell sx={{ fontWeight: 700, color: "#8892b0" }}>Date & Time</TableCell>
+                            <TableCell sx={{ fontWeight: 700, color: "#8892b0" }}>Operation</TableCell>
+                            <TableCell sx={{ fontWeight: 700, color: "#8892b0" }}>Target Image</TableCell>
+                            <TableCell sx={{ fontWeight: 700, color: "#8892b0" }}>Status</TableCell>
+                            <TableCell align="center" sx={{ fontWeight: 700, color: "#8892b0", minWidth: 150 }}>
                                 Actions
                             </TableCell>
                         </TableRow>
@@ -148,50 +149,52 @@ const History = () => {
                                     <TableCell
                                         sx={{
                                             fontWeight: 600,
-                                            color: row.type === "Embed" ? "#1976d2" : "#0288d1",
+                                            color: row.type === "Embed" ? "#00d4ff" : "#FFD60A",
                                         }}
                                     >
                                         {row.id}
                                     </TableCell>
-                                    <TableCell sx={{ color: "#64748b" }}>{row.date}</TableCell>
+                                    <TableCell sx={{ color: "#8892b0" }}>{row.date}</TableCell>
                                     <TableCell>{getTypeChip(row.type)}</TableCell>
-                                    <TableCell sx={{ fontWeight: 500 }}>{row.imageName}</TableCell>
+                                    <TableCell sx={{ fontWeight: 500, color: "#e6f1ff" }}>{row.imageName}</TableCell>
                                     <TableCell>{getStatusChip(row.status)}</TableCell>
                                     <TableCell align="center">
-                                        <Tooltip title="View Details">
-                                            <IconButton
-                                                onClick={() => setViewingEntry(row)}
-                                                size="small"
-                                                color="primary"
-                                            >
-                                                <Visibility />
-                                            </IconButton>
-                                        </Tooltip>
-                                        <Tooltip title="Download Result">
-                                            <IconButton
-                                                onClick={() => handleDownload(row)}
-                                                size="small"
-                                                color="inherit"
-                                            >
-                                                <Download />
-                                            </IconButton>
-                                        </Tooltip>
-                                        <Tooltip title="Delete">
-                                            <IconButton
-                                                onClick={() => handleDelete(row.id)}
-                                                size="small"
-                                                color="error"
-                                            >
-                                                <DeleteOutline />
-                                            </IconButton>
-                                        </Tooltip>
+                                        <Stack direction="row" spacing={1} justifyContent="center">
+                                            <Tooltip title="View Details">
+                                                <IconButton
+                                                    onClick={() => setViewingEntry(row)}
+                                                    size="small"
+                                                    sx={{ color: "#00d4ff", "&:hover": { bgcolor: "rgba(0, 212, 255, 0.1)" } }}
+                                                >
+                                                    <Visibility sx={{ fontSize: 20 }} />
+                                                </IconButton>
+                                            </Tooltip>
+                                            <Tooltip title="Download Result">
+                                                <IconButton
+                                                    onClick={() => handleDownload(row)}
+                                                    size="small"
+                                                    sx={{ color: "#e6f1ff", "&:hover": { bgcolor: "rgba(255, 255, 255, 0.05)" } }}
+                                                >
+                                                    <Download sx={{ fontSize: 20 }} />
+                                                </IconButton>
+                                            </Tooltip>
+                                            <Tooltip title="Delete">
+                                                <IconButton
+                                                    onClick={() => handleDelete(row.id)}
+                                                    size="small"
+                                                    sx={{ color: "#ff4d4d", "&:hover": { bgcolor: "rgba(255, 77, 77, 0.1)" } }}
+                                                >
+                                                    <DeleteOutline sx={{ fontSize: 20 }} />
+                                                </IconButton>
+                                            </Tooltip>
+                                        </Stack>
                                     </TableCell>
                                 </TableRow>
                             ))
                         ) : (
                             <TableRow>
                                 <TableCell colSpan={6} align="center" sx={{ py: 10 }}>
-                                    <HistoryIcon sx={{ fontSize: 60, color: "#cbd5e0", mb: 2 }} />
+                                    <HistoryIcon sx={{ fontSize: 60, color: "#112d4e", mb: 2 }} />
                                     <Typography color="text.secondary" variant="h6">
                                         No operation history found.
                                     </Typography>
@@ -211,7 +214,7 @@ const History = () => {
                 onClose={() => setViewingEntry(null)}
                 maxWidth="sm"
                 fullWidth
-                PaperProps={{ sx: { borderRadius: "24px", p: 1 } }}
+                PaperProps={{ sx: { bgcolor: "#0a192f", color: "#e6f1ff", borderRadius: "24px", p: 1, border: "1px solid rgba(0, 212, 255, 0.1)" } }}
             >
                 {viewingEntry && (
                     <>
@@ -270,10 +273,12 @@ const History = () => {
                                         sx={{
                                             p: 2,
                                             borderRadius: "12px",
-                                            bgcolor: "#f8fafc",
+                                            bgcolor: "#112d4e",
+                                            color: "#e6f1ff",
                                             fontFamily: "monospace",
                                             maxHeight: 200,
                                             overflow: "auto",
+                                            border: "1px solid rgba(0, 212, 255, 0.1)"
                                         }}
                                     >
                                         {viewingEntry.data || (
@@ -303,7 +308,7 @@ const History = () => {
                                             sx={{
                                                 width: "100%",
                                                 borderRadius: "12px",
-                                                border: "1px solid #e2e8f0",
+                                                border: "1px solid rgba(0, 212, 255, 0.1)",
                                             }}
                                         />
                                     </Box>
@@ -326,7 +331,7 @@ const History = () => {
                                         </Typography>
                                         <Paper
                                             variant="outlined"
-                                            sx={{ p: 2, borderRadius: "12px", bgcolor: "#f8fafc" }}
+                                            sx={{ p: 2, borderRadius: "12px", bgcolor: "#112d4e", border: "1px solid rgba(0, 212, 255, 0.1)" }}
                                         >
                                             {Object.entries(viewingEntry.metadata).map(
                                                 ([key, value]) =>

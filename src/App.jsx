@@ -34,79 +34,87 @@ import {
 } from "@mui/icons-material";
 import "./App.css";
 
-// Create light theme
-const lightTheme = createTheme({
+// Create dark theme
+const darkTheme = createTheme({
   palette: {
-    mode: "light",
+    mode: "dark",
     primary: {
-      main: "#1976d2",
-      light: "#42a5f5",
-      dark: "#1565c0",
+      main: "#0a192f",
+      light: "#112d4e",
+      dark: "#08121f",
     },
     secondary: {
-      main: "#0288d1",
-      light: "#4fc3f7",
-      dark: "#01579b",
+      main: "#00d4ff",
+      light: "#33ddff",
+      dark: "#0094b2",
+    },
+    accent: {
+      main: "#ffd60a",
     },
     background: {
-      default: "#ffffff",
-      paper: "#f8f9fa",
+      default: "#08121f",
+      paper: "rgba(255, 255, 255, 0.04)",
     },
     text: {
-      primary: "#1a365d",
-      secondary: "#2d3748",
+      primary: "#e6f1ff",
+      secondary: "#8892b0",
     },
+    divider: "rgba(0, 212, 255, 0.08)",
   },
   typography: {
     fontFamily: '"Inter", "Roboto", "Helvetica", "Arial", sans-serif',
     h1: {
       fontWeight: 800,
       fontSize: "3.5rem",
-      color: "#1a365d",
+      color: "#e6f1ff",
       lineHeight: 1.2,
+      letterSpacing: "-0.02em",
     },
     h2: {
       fontWeight: 700,
       fontSize: "2.5rem",
-      color: "#1a365d",
+      color: "#e6f1ff",
       marginBottom: "1rem",
     },
     h3: {
       fontWeight: 600,
       fontSize: "2rem",
-      color: "#2d3748",
+      color: "#e6f1ff",
       marginBottom: "0.75rem",
     },
     h4: {
       fontWeight: 600,
       fontSize: "1.5rem",
-      color: "#2d3748",
+      color: "#e6f1ff",
       marginBottom: "0.5rem",
     },
     body1: {
       fontSize: "1.1rem",
       lineHeight: 1.7,
-      color: "#4a5568",
+      color: "#8892b0",
     },
     body2: {
       fontSize: "1rem",
       lineHeight: 1.6,
-      color: "#718096",
+      color: "#8892b0",
     },
   },
   shape: {
-    borderRadius: 12,
+    borderRadius: 16,
   },
   components: {
     MuiCard: {
       styleOverrides: {
         root: {
-          boxShadow: "0 8px 30px rgba(0, 0, 0, 0.08)",
-          border: "1px solid #e2e8f0",
-          transition: "all 0.3s ease",
+          backgroundColor: "rgba(255, 255, 255, 0.04)",
+          backgroundImage: "none",
+          boxShadow: "0 0 15px rgba(0, 212, 255, 0.05)",
+          border: "1px solid rgba(0, 212, 255, 0.15)",
+          transition: "all 0.3s cubic-bezier(0.645, 0.045, 0.355, 1)",
           "&:hover": {
             transform: "translateY(-5px)",
-            boxShadow: "0 12px 40px rgba(0, 0, 0, 0.12)",
+            boxShadow: "0 8px 25px rgba(0, 212, 255, 0.1)",
+            borderColor: "rgba(0, 212, 255, 0.4)",
           },
         },
       },
@@ -114,7 +122,10 @@ const lightTheme = createTheme({
     MuiPaper: {
       styleOverrides: {
         root: {
-          boxShadow: "0 4px 20px rgba(0, 0, 0, 0.06)",
+          backgroundColor: "rgba(255, 255, 255, 0.04)",
+          backgroundImage: "none",
+          border: "1px solid rgba(0, 212, 255, 0.12)",
+          boxShadow: "0 10px 30px -15px rgba(2, 12, 27, 0.5)",
         },
       },
     },
@@ -124,7 +135,31 @@ const lightTheme = createTheme({
           fontWeight: 600,
           textTransform: "none",
           borderRadius: 8,
-          padding: "10px 24px",
+          padding: "12px 28px",
+          transition: "all 0.25s cubic-bezier(0.645, 0.045, 0.355, 1)",
+        },
+        containedPrimary: {
+          backgroundColor: "#00d4ff",
+          color: "#020c1b",
+          "&:hover": {
+            backgroundColor: "#33ddff",
+            boxShadow: "0 8px 16px rgba(0, 212, 255, 0.2)",
+          },
+        },
+        outlinedPrimary: {
+          borderColor: "#00d4ff",
+          color: "#00d4ff",
+          "&:hover": {
+            backgroundColor: "rgba(0, 212, 255, 0.1)",
+            borderColor: "#00d4ff",
+          },
+        },
+      },
+    },
+    MuiTypography: {
+      styleOverrides: {
+        root: {
+          color: "#e6f1ff",
         },
       },
     },
@@ -162,9 +197,17 @@ function App() {
     // If not logged in, only allow login and register pages
     if (!isLoggedIn) {
       if (activePage === "register") {
-        return <Register setActivePage={setActivePage} setIsLoggedIn={setIsLoggedIn} showNotification={showNotification} />;
+        return (
+          <Box sx={{ pt: 12, pb: 8 }}>
+            <Register setActivePage={setActivePage} setIsLoggedIn={setIsLoggedIn} showNotification={showNotification} />
+          </Box>
+        );
       }
-      return <Login setActivePage={setActivePage} setIsLoggedIn={setIsLoggedIn} showNotification={showNotification} />;
+      return (
+        <Box sx={{ pt: 12, pb: 8 }}>
+          <Login setActivePage={setActivePage} setIsLoggedIn={setIsLoggedIn} showNotification={showNotification} />
+        </Box>
+      );
     }
 
     switch (activePage) {
@@ -172,7 +215,7 @@ function App() {
         return <Home setActivePage={setActivePage} />;
       case "embed":
         return (
-          <Box sx={{ py: 8 }}>
+          <Box sx={{ pt: 12, pb: 8 }}>
             <Container maxWidth="lg">
               <Embed />
             </Container>
@@ -180,7 +223,7 @@ function App() {
         );
       case "extract":
         return (
-          <Box sx={{ py: 8 }}>
+          <Box sx={{ pt: 12, pb: 8 }}>
             <Container maxWidth="lg">
               <Extract />
             </Container>
@@ -188,7 +231,7 @@ function App() {
         );
       case "history":
         return (
-          <Box sx={{ py: 8 }}>
+          <Box sx={{ pt: 12, pb: 8 }}>
             <Container maxWidth="lg">
               <History />
             </Container>
@@ -196,9 +239,9 @@ function App() {
         );
       case "encoder":
         return (
-          <Box sx={{ py: 8 }}>
+          <Box sx={{ pt: 12, pb: 8 }}>
             <Container maxWidth="lg">
-              <Typography variant="h1" component="h1" gutterBottom sx={{ mb: 4, color: "#1a365d" }}>
+              <Typography variant="h1" component="h1" gutterBottom sx={{ mb: 4 }}>
                 Medical Image Encoding
               </Typography>
               <Typography variant="h5" color="text.secondary" paragraph sx={{ mb: 6, maxWidth: "800px" }}>
@@ -211,9 +254,9 @@ function App() {
         );
       case "results":
         return (
-          <Box sx={{ py: 8 }}>
+          <Box sx={{ pt: 12, pb: 8 }}>
             <Container maxWidth="lg">
-              <Typography variant="h1" component="h1" gutterBottom sx={{ mb: 4, color: "#1a365d" }}>
+              <Typography variant="h1" component="h1" gutterBottom sx={{ mb: 4, color: "#e6f1ff" }}>
                 Results & Performance Analysis
               </Typography>
               <Typography variant="h5" color="text.secondary" paragraph sx={{ mb: 6, maxWidth: "800px" }}>
@@ -226,9 +269,9 @@ function App() {
         );
       case "model":
         return (
-          <Box sx={{ py: 8 }}>
+          <Box sx={{ pt: 12, pb: 8 }}>
             <Container maxWidth="lg">
-              <Typography variant="h1" component="h1" gutterBottom sx={{ mb: 4, color: "#1a365d" }}>
+              <Typography variant="h1" component="h1" gutterBottom sx={{ mb: 4, color: "#e6f1ff" }}>
                 Model Architecture & Methodology
               </Typography>
               <Typography variant="h5" color="text.secondary" paragraph sx={{ mb: 6, maxWidth: "800px" }}>
@@ -241,9 +284,9 @@ function App() {
         );
       case "medical":
         return (
-          <Box sx={{ py: 8 }}>
+          <Box sx={{ pt: 12, pb: 8 }}>
             <Container maxWidth="lg">
-              <Typography variant="h1" component="h1" gutterBottom sx={{ mb: 4, color: "#1a365d" }}>
+              <Typography variant="h1" component="h1" gutterBottom sx={{ mb: 4, color: "#e6f1ff" }}>
                 Medical Applications & Clinical Integration
               </Typography>
               <Typography variant="h5" color="text.secondary" paragraph sx={{ mb: 6, maxWidth: "800px" }}>
@@ -264,7 +307,7 @@ function App() {
   };
 
   return (
-    <ThemeProvider theme={lightTheme}>
+    <ThemeProvider theme={darkTheme}>
       <CssBaseline />
       <div className="app-container">
         {isLoggedIn && (

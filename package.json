@@ -1,5 +1,5 @@
 {
-  "name": "package.json",
+  "name": "autovault",
   "private": true,
   "version": "0.0.0",
   "type": "module",

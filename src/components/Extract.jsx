@@ -291,7 +291,7 @@ const Extract = () => {
         <Box sx={{ maxWidth: 1000, mx: "auto", py: 4 }}>
             {/* Header */}
             <Box sx={{ textAlign: "center", mb: 6 }}>
-                <Typography variant="h2" sx={{ fontWeight: 800, mb: 2, color: "#1a365d" }}>
+                <Typography variant="h2" sx={{ fontWeight: 800, mb: 2, color: "#e6f1ff" }}>
                     Extract Secret Data
                 </Typography>
                 <Typography variant="h6" color="text.secondary" sx={{ maxWidth: 600, mx: "auto" }}>
@@ -336,8 +336,8 @@ const Extract = () => {
                 sx={{
                     p: 4,
                     borderRadius: "24px",
-                    bgcolor: "white",
-                    border: image ? "1px solid #e2e8f0" : "2px dashed #cbd5e0",
+                    bgcolor: "#0a192f",
+                    border: image ? "1px solid rgba(0, 212, 255, 0.1)" : "2px dashed rgba(0, 212, 255, 0.2)",
                     transition: "all 0.3s ease",
                     position: "relative",
                     minHeight: 400,
@@ -346,8 +346,8 @@ const Extract = () => {
                     justifyContent: "center",
                     alignItems: "center",
                     "&:hover": {
-                        borderColor: image ? "#e2e8f0" : "#1976d2",
-                        bgcolor: image ? "white" : "rgba(25, 118, 210, 0.02)",
+                        borderColor: "#00d4ff",
+                        bgcolor: "rgba(0, 212, 255, 0.02)",
                     },
                 }}
             >
@@ -357,8 +357,8 @@ const Extract = () => {
                         <Box sx={{
                             p: 3,
                             borderRadius: "50%",
-                            bgcolor: "rgba(2, 136, 209, 0.1)",
-                            color: "#0288d1",
+                            bgcolor: "rgba(0, 212, 255, 0.1)",
+                            color: "#00d4ff",
                             animation: "pulse 2s infinite",
                             "@keyframes pulse": {
                                 "0%": { transform: "scale(1)", opacity: 1 },
@@ -382,9 +382,10 @@ const Extract = () => {
                                 textTransform: "none",
                                 fontSize: "1.1rem",
                                 fontWeight: 700,
-                                bgcolor: "#0288d1",
-                                "&:hover": { bgcolor: "#01579b" },
-                                boxShadow: "0 4px 15px rgba(2, 136, 209, 0.3)",
+                                bgcolor: "#00d4ff",
+                                color: "#020c1b",
+                                "&:hover": { bgcolor: "#33ddff" },
+                                boxShadow: "0 4px 15px rgba(0, 212, 255, 0.3)",
                             }}
                         >
                             Choose Encoded Image
@@ -410,8 +411,8 @@ const Extract = () => {
                                         sx={{
                                             p: 1.5,
                                             borderRadius: "20px",
-                                            bgcolor: "rgba(2, 136, 209, 0.04)",
-                                            border: "2px dashed #0288d1",
+                                            bgcolor: "rgba(0, 212, 255, 0.05)",
+                                            border: "2px dashed #00d4ff",
                                             display: "inline-flex",
                                             alignItems: "center",
                                             gap: 1.5,
@@ -419,13 +420,13 @@ const Extract = () => {
                                             minWidth: 160,
                                             transition: "all 0.3s ease",
                                             "&:hover": {
-                                                bgcolor: "rgba(2, 136, 209, 0.08)",
+                                                bgcolor: "rgba(0, 212, 255, 0.1)",
                                                 transform: "translateY(-2px)"
                                             }
                                         }}
                                     >
-                                        <CloudUpload sx={{ fontSize: 24, color: "#0288d1" }} />
-                                        <Typography variant="body2" sx={{ fontWeight: 700, color: "#0288d1" }}>
+                                        <CloudUpload sx={{ fontSize: 24, color: "#00d4ff" }} />
+                                        <Typography variant="body2" sx={{ fontWeight: 700, color: "#00d4ff" }}>
                                             Upload Image
                                         </Typography>
                                     </Paper>
@@ -436,22 +437,22 @@ const Extract = () => {
                                             position: "relative",
                                             p: 1.5,
                                             borderRadius: "20px",
-                                            bgcolor: "rgba(2, 136, 209, 0.04)",
-                                            border: "1px solid #e2e8f0",
+                                            bgcolor: "rgba(0, 212, 255, 0.05)",
+                                            border: "1px solid rgba(0, 212, 255, 0.1)",
                                             display: "inline-flex",
                                             alignItems: "center",
                                             gap: 1.5,
                                             transition: "all 0.3s ease",
                                             "&:hover": {
-                                                bgcolor: "rgba(2, 136, 209, 0.08)",
-                                                borderColor: "#0288d1",
+                                                bgcolor: "rgba(0, 212, 255, 0.1)",
+                                                borderColor: "#00d4ff",
                                                 "& .remove-image-btn": { opacity: 1 }
                                             }
                                         }}
                                     >
-                                        <ImageIcon sx={{ fontSize: 40, color: "#0288d1" }} />
+                                        <ImageIcon sx={{ fontSize: 40, color: "#00d4ff" }} />
                                         <Box sx={{ display: "flex", flexDirection: "column" }}>
-                                            <Typography variant="body2" sx={{ fontWeight: 700, color: "#1a365d" }} noWrap>
+                                            <Typography variant="body2" sx={{ fontWeight: 700, color: "#e6f1ff" }} noWrap>
                                                 {imageName}
                                             </Typography>
                                         </Box>
@@ -486,8 +487,8 @@ const Extract = () => {
                                         ml: "auto",
                                         textTransform: "none",
                                         fontWeight: 600,
-                                        color: showMetadataInput ? "#0288d1" : "#64748b",
-                                        "&:hover": { bgcolor: "rgba(2, 136, 209, 0.05)" }
+                                        color: showMetadataInput ? "#00d4ff" : "#8892b0",
+                                        "&:hover": { bgcolor: "rgba(0, 212, 255, 0.05)" }
                                     }}
                                 >
                                     {showMetadataInput ? "Hide Advanced Options" : "Manual Metadata / Session Key"}
@@ -497,7 +498,7 @@ const Extract = () => {
                             {/* Optional Metadata Input */}
                             <Box sx={{ width: '100%', mb: 3 }}>
                                 <Stack direction="row" justifyContent="space-between" alignItems="center" sx={{ mb: 1 }}>
-                                    <Typography variant="subtitle2" sx={{ fontWeight: 700, color: "#1a365d" }}>
+                                    <Typography variant="subtitle2" sx={{ fontWeight: 700, color: "#e6f1ff" }}>
                                         Metadata & Verification Keys
                                     </Typography>
                                     <Stack direction="row" spacing={1}>
@@ -505,7 +506,7 @@ const Extract = () => {
                                             size="small"
                                             onClick={() => metadataFileInputRef.current.click()}
                                             startIcon={<CloudUpload />}
-                                            sx={{ textTransform: "none", fontWeight: 600 }}
+                                            sx={{ textTransform: "none", fontWeight: 700, color: "#00d4ff" }}
                                         >
                                             Load JSON
                                         </Button>
@@ -516,7 +517,7 @@ const Extract = () => {
                                             sx={{
                                                 textTransform: "none",
                                                 fontWeight: 600,
-                                                color: showMetadataInput ? "#0288d1" : "#64748b"
+                                                color: showMetadataInput ? "#00d4ff" : "#8892b0"
                                             }}
                                         >
                                             {showMetadataInput ? "Hide Fields" : "Enter Manually"}
@@ -526,7 +527,7 @@ const Extract = () => {
 
                                 {showMetadataInput && (
                                     <Zoom in={true}>
-                                        <Paper sx={{ p: 3, bgcolor: "#f8fafc", borderRadius: "16px", border: "1px solid #e2e8f0" }}>
+                                        <Paper sx={{ p: 3, bgcolor: "rgba(255, 255, 255, 0.04)", borderRadius: "16px", border: "1px solid rgba(0, 212, 255, 0.15)", boxShadow: "0 0 15px rgba(0, 212, 255, 0.05)" }}>
                                             <Grid container spacing={2}>
                                                 <Grid item xs={12} md={6}>
                                                     <TextField
@@ -587,8 +588,9 @@ const Extract = () => {
                                                 fontSize: "1.1rem",
                                                 fontWeight: 700,
                                                 textTransform: "none",
-                                                bgcolor: "#0288d1",
-                                                "&:hover": { bgcolor: "#01579b", transform: "translateY(-2px)" },
+                                                bgcolor: "#00d4ff",
+                                                color: "#020c1b",
+                                                "&:hover": { bgcolor: "#33ddff", transform: "translateY(-2px)" },
                                                 transition: "all 0.3s ease",
                                             }}
                                         >
@@ -630,11 +632,12 @@ const Extract = () => {
                                                     sx={{
                                                         p: 3,
                                                         borderRadius: "16px",
-                                                        bgcolor: "#f8fafc",
+                                                        bgcolor: "rgba(255, 255, 255, 0.04)",
+                                                        color: "#e6f1ff",
                                                         fontFamily: "monospace",
                                                         fontSize: "0.95rem",
                                                         lineHeight: 1.6,
-                                                        border: "1px solid #e2e8f0",
+                                                        border: "1px solid rgba(0, 212, 255, 0.15)",
                                                         maxHeight: 300,
                                                         overflow: "auto",
                                                     }}
@@ -645,9 +648,9 @@ const Extract = () => {
 
                                             {/* Security Info */}
                                             {result && (
-                                                <Card sx={{ borderRadius: "16px", bgcolor: "#f5f5f5" }}>
+                                                <Card sx={{ borderRadius: "16px", bgcolor: "rgba(255, 255, 255, 0.04)", border: "1px solid rgba(0, 212, 255, 0.15)", boxShadow: "0 0 15px rgba(0, 212, 255, 0.05)" }}>
                                                     <CardContent>
-                                                        <Typography variant="subtitle2" sx={{ fontWeight: 700, mb: 2, color: "#0288d1" }}>
+                                                        <Typography variant="subtitle2" sx={{ fontWeight: 700, mb: 2, color: "#00d4ff" }}>
                                                             Security Details
                                                         </Typography>
                                                         <Stack spacing={1.5}>
@@ -691,7 +694,8 @@ const Extract = () => {
                                                         fontSize: "1rem",
                                                         fontWeight: 700,
                                                         textTransform: "none",
-                                                        bgcolor: "#0288d1",
+                                                        bgcolor: "#00d4ff",
+                                                        color: "#020c1b",
                                                     }}
                                                 >
                                                     Download Text
@@ -708,8 +712,8 @@ const Extract = () => {
                                                         fontSize: "1rem",
                                                         fontWeight: 700,
                                                         textTransform: "none",
-                                                        borderColor: "#0288d1",
-                                                        color: "#0288d1",
+                                                        borderColor: "#00d4ff",
+                                                        color: "#00d4ff",
                                                         borderWidth: 2,
                                                     }}
                                                 >
@@ -730,7 +734,7 @@ const Extract = () => {
                                                         borderColor: "#64748b",
                                                         color: "#64748b",
                                                         borderWidth: 2,
-                                                        "&:hover": { borderColor: "#1a365d", color: "#1a365d", bgcolor: "rgba(26,54,93,0.04)" },
+                                                        "&:hover": { borderColor: "#00d4ff", color: "#00d4ff", bgcolor: "rgba(0, 212, 255, 0.04)" },
                                                     }}
                                                 >
                                                     Try Again
@@ -760,35 +764,68 @@ const Extract = () => {
             </Paper>
 
             {/* Processing Overlay */}
-            {
-                isProcessing && (
-                    <Box
-                        sx={{
-                            position: "fixed",
-                            top: 0,
-                            left: 0,
-                            right: 0,
-                            bottom: 0,
-                            bgcolor: "rgba(0,0,0,0.5)",
-                            display: "flex",
-                            alignItems: "center",
-                            justifyContent: "center",
-                            zIndex: 9999,
-                            backdropFilter: "blur(5px)",
+            {isProcessing && (
+                <Box
+                    sx={{
+                        position: "fixed",
+                        top: 0,
+                        left: 0,
+                        right: 0,
+                        bottom: 0,
+                        bgcolor: "rgba(2, 12, 27, 0.85)",
+                        display: "flex",
+                        alignItems: "center",
+                        justifyContent: "center",
+                        zIndex: 9999,
+                        backdropFilter: "blur(12px)",
+                        animation: "fadeIn 0.3s ease",
+                        "@keyframes fadeIn": {
+                          from: { opacity: 0 },
+                          to: { opacity: 1 }
+                        }
+                    }}
+                >
+                    <Paper 
+                        elevation={24}
+                        sx={{ 
+                            p: 5, 
+                            borderRadius: "32px", 
+                            textAlign: "center", 
+                            maxWidth: 450,
+                            bgcolor: "rgba(10, 25, 47, 0.95)",
+                            border: "1px solid rgba(0, 212, 255, 0.3)",
+                            boxShadow: "0 20px 50px rgba(0, 212, 255, 0.15)",
                         }}
                     >
-                        <Paper sx={{ p: 4, borderRadius: "24px", textAlign: "center", maxWidth: 400 }}>
-                            <CircularProgress size={60} sx={{ mb: 2 }} />
-                            <Typography variant="h6" sx={{ mb: 1, fontWeight: 700 }}>
-                                Extracting with Autoencoder
+                        <CircularProgress 
+                            size={70} 
+                            thickness={4}
+                            sx={{ 
+                                mb: 3, 
+                                color: "#00d4ff",
+                                filter: "drop-shadow(0 0 10px rgba(0, 212, 255, 0.5))"
+                            }} 
+                        />
+                        <Typography variant="h5" sx={{ mb: 2, fontWeight: 800, color: "#e6f1ff", letterSpacing: "-0.5px" }}>
+                            Extracting with Autoencoder
+                        </Typography>
+                        <Stack spacing={1}>
+                            <Typography sx={{ color: "#8892b0", fontSize: "0.95rem", lineHeight: 1.6 }}>
+                                • Reconstructing LSB neural map
                             </Typography>
-                            <Typography color="text.secondary">
-                                Extracting LSB bits • Descrambling • Verifying integrity • Reconstructing data
+                            <Typography sx={{ color: "#8892b0", fontSize: "0.95rem", lineHeight: 1.6 }}>
+                                • Descrambling encrypted blocks
                             </Typography>
-                        </Paper>
-                    </Box>
-                )
-            }
+                            <Typography sx={{ color: "#8892b0", fontSize: "0.95rem", lineHeight: 1.6 }}>
+                                • Verifying multi-layer integrity
+                            </Typography>
+                            <Typography sx={{ color: "#8892b0", fontSize: "0.95rem", lineHeight: 1.6 }}>
+                                • Performing reversible data recovery
+                            </Typography>
+                        </Stack>
+                    </Paper>
+                </Box>
+            )}
 
             {/* Notifications */}
             <Snackbar

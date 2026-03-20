@@ -45,26 +45,26 @@ const NavButton = ({ active, children, ...props }) => (
   <Button
     {...props}
     sx={{
-      color: active ? "#ffeb3b" : "white",
-      fontWeight: active ? 600 : 500,
+      color: active ? "#00d4ff" : "#e6f1ff",
+      fontWeight: active ? 700 : 500,
       mx: 1,
       px: 2,
       py: 1,
       borderRadius: 2,
       "&:hover": {
-        backgroundColor: active ? "rgba(255, 235, 59, 0.2)" : "rgba(255, 255, 255, 0.15)",
+        backgroundColor: active ? "rgba(0, 212, 255, 0.15)" : "rgba(255, 255, 255, 0.1)",
         transform: "translateY(-1px)",
       },
-      transition: "all 0.2s ease",
+      transition: "all 0.25s cubic-bezier(0.645, 0.045, 0.355, 1)",
       position: "relative",
       "&::after": active ? {
         content: '""',
         position: "absolute",
-        bottom: 4,
-        left: "20%",
-        right: "20%",
+        bottom: 2,
+        left: "15%",
+        right: "15%",
         height: "2px",
-        backgroundColor: "#ffeb3b",
+        backgroundColor: "#00d4ff",
         borderRadius: 1,
       } : {},
     }}
@@ -248,8 +248,10 @@ function Navbar({ activePage, setActivePage, isLoggedIn, setIsLoggedIn, showNoti
       <AppBar
         position="fixed"
         sx={{
-          background: 'linear-gradient(135deg, #1565c0, #1976d2)',
-          boxShadow: "0 4px 20px rgba(0, 0, 0, 0.15)",
+          background: 'rgba(8, 18, 31, 0.9)',
+          backdropFilter: "blur(12px)",
+          boxShadow: "0 8px 32px rgba(0, 212, 255, 0.05)",
+          borderBottom: "1px solid rgba(0, 212, 255, 0.08)",
           zIndex: 1300,
         }}
       >
@@ -264,11 +266,12 @@ function Navbar({ activePage, setActivePage, isLoggedIn, setIsLoggedIn, showNoti
                 cursor: "pointer",
                 padding: "8px 12px",
                 borderRadius: "12px",
-                background: "rgba(255, 255, 255, 0.1)",
-                border: "1px solid rgba(255, 255, 255, 0.2)",
+                background: "rgba(0, 212, 255, 0.05)",
+                border: "1px solid rgba(0, 212, 255, 0.1)",
                 "&:hover": {
-                  background: "rgba(255, 255, 255, 0.2)",
+                  background: "rgba(0, 212, 255, 0.1)",
                   transform: "scale(1.02)",
+                  borderColor: "rgba(0, 212, 255, 0.3)",
                 },
                 transition: "all 0.2s ease",
               }}
@@ -279,15 +282,13 @@ function Navbar({ activePage, setActivePage, isLoggedIn, setIsLoggedIn, showNoti
                   display: "flex",
                   alignItems: "center",
                   justifyContent: "center",
-                  width: 32,
-                  height: 32,
-                  borderRadius: "8px",
-                  background: "white",
-                  mr: 1.5,
-                  boxShadow: "0 4px 10px rgba(0,0,0,0.1)",
+                  background: "transparent",
+                  mr: 1,
+                  display: "flex",
+                  alignItems: "center"
                 }}
               >
-                <Security sx={{ color: "#1976d2", fontSize: "1.2rem" }} />
+                <Security sx={{ color: "#00d4ff", fontSize: "1.8rem" }} />
               </Box>
               <Typography
                 variant="h6"
@@ -300,7 +301,7 @@ function Navbar({ activePage, setActivePage, isLoggedIn, setIsLoggedIn, showNoti
                   textTransform: "uppercase",
                 }}
               >
-                Auto<span style={{ color: "#ffeb3b" }}>Vault</span>
+                Auto<span style={{ color: "#ffd60a" }}>Vault</span>
               </Typography>
             </Box>
 
@@ -433,20 +434,16 @@ function Navbar({ activePage, setActivePage, isLoggedIn, setIsLoggedIn, showNoti
                   variant="contained"
                   onClick={() => setActivePage("login")}
                   sx={{
-                    background: "white",
-                    color: "#1976d2",
-                    fontWeight: 700, // Slightly bolder
-                    px: 5,        // Increased horizontal padding
-                    py: 1.5,      // Increased vertical padding
-                    fontSize: "1.05rem", // Slightly larger font
-                    boxShadow: "0 4px 15px rgba(0, 0, 0, 0.2)",
-                    borderRadius: "10px",
+                    background: "#00d4ff",
+                    color: "#020c1b",
+                    fontWeight: 700,
+                    px: 4,
+                    py: 1,
+                    borderRadius: "8px",
                     "&:hover": {
-                      background: "#ffffff",
-                      transform: "translateY(-2px)", // more pronounced hover effect
-                      boxShadow: "0 6px 20px rgba(0, 0, 0, 0.25)",
+                      background: "#33ddff",
+                      transform: "translateY(-2px)",
                     },
-                    transition: "all 0.3s ease",
                   }}
                 >
                   Sign In
@@ -535,7 +532,7 @@ function Navbar({ activePage, setActivePage, isLoggedIn, setIsLoggedIn, showNoti
         <DialogContent>
           {profileData ? (
             <Box sx={{ mt: 1 }}>
-              <Box sx={{ display: "flex", flexDirection: "column", gap: 2, mb: 4, p: 2, bgcolor: "#f8fafc", borderRadius: "12px" }}>
+              <Box sx={{ display: "flex", flexDirection: "column", gap: 2, mb: 4, p: 2, bgcolor: "#112d4e", borderRadius: "12px" }}>
                 <Box sx={{ display: "flex", alignItems: "center", gap: 2 }}>
                   <Edit sx={{ color: "text.secondary", fontSize: "1.2rem" }} />
                   <Box>

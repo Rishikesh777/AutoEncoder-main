@@ -103,18 +103,19 @@ function Register({ setActivePage, setIsLoggedIn, showNotification }) {
                         flexDirection: "column",
                         alignItems: "center",
                         width: "100%",
-                        borderRadius: 3,
-                        boxShadow: "0 10px 40px rgba(0,0,0,0.08)",
-                        border: "1px solid #e2e8f0",
+                        borderRadius: 4,
+                        backgroundColor: "#0a192f",
+                        boxShadow: "0 10px 40px rgba(0,0,0,0.3)",
+                        border: "1px solid rgba(0, 212, 255, 0.1)",
                     }}
                 >
                     <Box
                         sx={{
                             m: 1,
-                            bgcolor: "primary.main",
-                            color: "white",
-                            p: 1,
-                            borderRadius: "50%",
+                            bgcolor: "rgba(0, 212, 255, 0.1)",
+                            color: "#00d4ff",
+                            p: 2,
+                            borderRadius: "12px",
                             display: "flex",
                             alignItems: "center",
                             justifyContent: "center",
@@ -122,7 +123,7 @@ function Register({ setActivePage, setIsLoggedIn, showNotification }) {
                     >
                         <PersonAdd />
                     </Box>
-                    <Typography component="h1" variant="h5" sx={{ mb: 3, fontWeight: 700, color: "#1a365d" }}>
+                    <Typography component="h1" variant="h5" sx={{ mb: 3, fontWeight: 700, color: "#e6f1ff" }}>
                         Create Account
                     </Typography>
 
@@ -249,10 +250,11 @@ function Register({ setActivePage, setIsLoggedIn, showNotification }) {
                                 fontSize: "1rem",
                                 textTransform: "none",
                                 fontWeight: 600,
-                                background: "linear-gradient(135deg, #1565c0, #1976d2)",
-                                boxShadow: "0 4px 12px rgba(25, 118, 210, 0.2)",
+                                background: "#00d4ff",
+                                color: "#020c1b",
                                 "&:hover": {
-                                    boxShadow: "0 6px 16px rgba(25, 118, 210, 0.3)",
+                                    background: "#33ddff",
+                                    boxShadow: "0 8px 20px rgba(0, 212, 255, 0.2)",
                                 },
                             }}
                         >

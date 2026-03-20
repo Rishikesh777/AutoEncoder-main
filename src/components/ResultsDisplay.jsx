@@ -164,8 +164,8 @@ function ResultsDisplay() {
                         style={{ 
                           width: `${(parseFloat(row.psnr) / 50) * 100}%`,
                           background: row.method === "Proposed AutoEncoder" 
-                            ? "linear-gradient(90deg, #00e5ff, #2979ff)" 
-                            : "rgba(255, 255, 255, 0.2)"
+                            ? "linear-gradient(90deg, #00d4ff, #0094b2)" 
+                            : "rgba(255, 255, 255, 0.1)"
                         }}
                       >
                         <span className="bar-value">{row.psnr}</span>

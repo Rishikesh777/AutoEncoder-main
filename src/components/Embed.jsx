@@ -243,7 +243,7 @@ const Embed = () => {
         <Box sx={{ maxWidth: 1000, mx: "auto", py: 4 }}>
             {/* Header */}
             <Box sx={{ textAlign: "center", mb: 6 }}>
-                <Typography variant="h2" sx={{ fontWeight: 800, mb: 2, color: "#1a365d" }}>
+                <Typography variant="h2" sx={{ fontWeight: 800, mb: 2, color: "#e6f1ff" }}>
                     Embed Secret Data
                 </Typography>
                 <Typography variant="h6" color="text.secondary" sx={{ maxWidth: 600, mx: "auto" }}>
@@ -271,8 +271,8 @@ const Embed = () => {
                 sx={{
                     p: 4,
                     borderRadius: "24px",
-                    bgcolor: "white",
-                    border: image ? "1px solid #e2e8f0" : "2px dashed #cbd5e0",
+                    bgcolor: "rgba(255, 255, 255, 0.04)",
+                    border: image ? "1px solid rgba(0, 212, 255, 0.15)" : "2px dashed rgba(0, 212, 255, 0.2)",
                     transition: "all 0.3s ease",
                     position: "relative",
                     minHeight: 400,
@@ -280,9 +280,10 @@ const Embed = () => {
                     flexDirection: "column",
                     justifyContent: "center",
                     alignItems: "center",
+                    boxShadow: "0 0 15px rgba(0, 212, 255, 0.05)",
                     "&:hover": {
-                        borderColor: image ? "#e2e8f0" : "#1976d2",
-                        bgcolor: image ? "white" : "rgba(25, 118, 210, 0.02)",
+                        borderColor: "#00d4ff",
+                        bgcolor: "rgba(0, 212, 255, 0.02)",
                     },
                 }}
             >
@@ -291,8 +292,8 @@ const Embed = () => {
                         <Box sx={{
                             p: 3,
                             borderRadius: "50%",
-                            bgcolor: "rgba(25, 118, 210, 0.1)",
-                            color: "#1976d2",
+                            bgcolor: "rgba(0, 212, 255, 0.1)",
+                            color: "#00d4ff",
                             animation: "pulse 2s infinite",
                             "@keyframes pulse": {
                                 "0%": { transform: "scale(1)", opacity: 1 },
@@ -316,7 +317,10 @@ const Embed = () => {
                                 textTransform: "none",
                                 fontSize: "1.1rem",
                                 fontWeight: 700,
-                                boxShadow: "0 4px 15px rgba(25, 118, 210, 0.3)",
+                                bgcolor: "#00d4ff",
+                                color: "#020c1b",
+                                boxShadow: "0 4px 15px rgba(0, 212, 255, 0.3)",
+                                "&:hover": { bgcolor: "#33ddff" }
                             }}
                         >
                             Choose Medical Image
@@ -350,7 +354,7 @@ const Embed = () => {
                                         position: "absolute",
                                         top: -15,
                                         right: -15,
-                                        bgcolor: "white",
+                                        bgcolor: "#e6f1ff",
                                         border: "1px solid #e2e8f0",
                                         "&:hover": { bgcolor: "#fee2e2", color: "#ef4444" },
                                         boxShadow: "0 4px 10px rgba(0,0,0,0.1)",
@@ -367,8 +371,8 @@ const Embed = () => {
                                         bottom: -10,
                                         left: "50%",
                                         transform: "translateX(-50%)",
-                                        bgcolor: "primary.main",
-                                        color: "white",
+                                        bgcolor: "#00d4ff",
+                                        color: "#020c1b",
                                         fontWeight: 600,
                                     }}
                                 />
@@ -393,8 +397,8 @@ const Embed = () => {
                                         }}
                                     >
                                         <Stack direction="row" alignItems="center" justifyContent="space-between" sx={{ mb: 1.5 }}>
-                                            <Typography variant="h6" sx={{ fontWeight: 700, display: "flex", alignItems: "center" }}>
-                                                <Description sx={{ mr: 1, color: "#1976d2" }} />
+                                            <Typography variant="h6" sx={{ fontWeight: 700, display: "flex", alignItems: "center", color: "#e6f1ff" }}>
+                                                <Description sx={{ mr: 1, color: "#00d4ff" }} />
                                                 Patient Information / Secret Data
                                             </Typography>
                                             <Button
@@ -420,7 +424,7 @@ const Embed = () => {
                                             sx={{
                                                 "& .MuiOutlinedInput-root": {
                                                     borderRadius: "16px",
-                                                    bgcolor: "#f8fafc",
+                                                    bgcolor: "#112d4e",
                                                 },
                                             }}
                                         />
@@ -442,7 +446,7 @@ const Embed = () => {
                                                 mt: 2,
                                                 "& .MuiOutlinedInput-root": {
                                                     borderRadius: "16px",
-                                                    bgcolor: "#f8fafc",
+                                                    bgcolor: "rgba(255, 255, 255, 0.05)",
                                                 },
                                             }}
                                             helperText="If set, data can only be read by someone with this password. Leave blank for no encryption."
@@ -470,9 +474,10 @@ const Embed = () => {
                                                 fontSize: "1.1rem",
                                                 fontWeight: 700,
                                                 textTransform: "none",
-                                                background: "linear-gradient(135deg, #1976d2, #1565c0)",
+                                                background: "linear-gradient(135deg, #00d4ff, #112d4e)",
+                                                color: "#e6f1ff",
                                                 "&:hover": {
-                                                    background: "linear-gradient(135deg, #1565c0, #0d47a1)",
+                                                    background: "linear-gradient(135deg, #33ddff, #0a192f)",
                                                     transform: "translateY(-2px)",
                                                 },
                                                 transition: "all 0.3s ease",
@@ -498,10 +503,10 @@ const Embed = () => {
             {/* Results Section */}
             {isGenerated && result && (
                 <Fade in={true}>
-                    <Paper sx={{ mt: 4, p: 4, borderRadius: "24px", bgcolor: "#f8fafc" }}>
+                    <Paper sx={{ mt: 4, p: 4, borderRadius: "24px", bgcolor: "#0a192f", border: "1px solid rgba(0, 212, 255, 0.1)" }}>
                         <Box sx={{ display: "flex", alignItems: "center", gap: 2, mb: 3 }}>
-                            <CheckCircle sx={{ color: "#2e7d32", fontSize: 32 }} />
-                            <Typography variant="h5" sx={{ fontWeight: 700, color: "#1a365d" }}>
+                            <CheckCircle sx={{ color: "#00d4ff", fontSize: 32 }} />
+                            <Typography variant="h5" sx={{ fontWeight: 700, color: "#e6f1ff" }}>
                                 Watermarked Image Generated Successfully
                             </Typography>
                         </Box>
@@ -510,7 +515,7 @@ const Embed = () => {
                             {/* Left Column - Image Preview */}
                             <Grid item xs={12} md={6}>
                                 <Card sx={{ borderRadius: "20px", overflow: "hidden" }}>
-                                    <Box sx={{ p: 2, bgcolor: "#1976d2", color: "white" }}>
+                                    <Box sx={{ p: 2, bgcolor: "#112d4e", color: "#e6f1ff" }}>
                                         <Typography variant="subtitle1" sx={{ fontWeight: 600 }}>
                                             Watermarked Image
                                         </Typography>
@@ -557,7 +562,7 @@ const Embed = () => {
                             {/* Right Column - Security Info */}
                             <Grid item xs={12} md={6}>
                                 <Card sx={{ borderRadius: "20px", height: "100%" }}>
-                                    <Box sx={{ p: 2, bgcolor: "#2e7d32", color: "white", borderTopLeftRadius: "20px", borderTopRightRadius: "20px" }}>
+                                    <Box sx={{ p: 2, bgcolor: "#00d4ff", color: "#020c1b", borderTopLeftRadius: "20px", borderTopRightRadius: "20px" }}>
                                         <Typography variant="subtitle1" sx={{ fontWeight: 600 }}>
                                             Security & Performance
                                         </Typography>
@@ -590,19 +595,19 @@ const Embed = () => {
 
                                             <Divider />
 
-                                            <Typography variant="subtitle2" sx={{ fontWeight: 700, color: "#1a365d" }}>
+                                            <Typography variant="subtitle2" sx={{ fontWeight: 700, color: "#00d4ff" }}>
                                                 Performance Metrics
                                             </Typography>
 
                                             <Grid container spacing={2}>
                                                 <Grid item xs={6}>
-                                                    <Paper sx={{ p: 1.5, textAlign: "center", bgcolor: "#e3f2fd" }}>
+                                                    <Paper sx={{ p: 1.5, textAlign: "center", bgcolor: "rgba(0, 212, 255, 0.05)", border: "1px solid rgba(0, 212, 255, 0.1)" }}>
                                                         <Typography variant="caption" color="text.secondary">Total Bits</Typography>
                                                         <Typography variant="h6">{result.metadata?.total_bits ?? "—"}</Typography>
                                                     </Paper>
                                                 </Grid>
                                                 <Grid item xs={6}>
-                                                    <Paper sx={{ p: 1.5, textAlign: "center", bgcolor: "#e8f5e8" }}>
+                                                    <Paper sx={{ p: 1.5, textAlign: "center", bgcolor: "rgba(0, 212, 255, 0.05)", border: "1px solid rgba(0, 212, 255, 0.1)" }}>
                                                         <Typography variant="caption" color="text.secondary">Embed Rate</Typography>
                                                         <Typography variant="h6">{result.metadata?.embedding_rate ?? "—"}</Typography>
                                                     </Paper>
@@ -632,22 +637,57 @@ const Embed = () => {
                         left: 0,
                         right: 0,
                         bottom: 0,
-                        bgcolor: "rgba(0,0,0,0.5)",
+                        bgcolor: "rgba(2, 12, 27, 0.85)",
                         display: "flex",
                         alignItems: "center",
                         justifyContent: "center",
                         zIndex: 9999,
-                        backdropFilter: "blur(5px)",
+                        backdropFilter: "blur(12px)",
+                        animation: "fadeIn 0.3s ease",
+                        "@keyframes fadeIn": {
+                          from: { opacity: 0 },
+                          to: { opacity: 1 }
+                        }
                     }}
                 >
-                    <Paper sx={{ p: 4, borderRadius: "24px", textAlign: "center", maxWidth: 400 }}>
-                        <CircularProgress size={60} sx={{ mb: 2 }} />
-                        <Typography variant="h6" sx={{ mb: 1, fontWeight: 700 }}>
+                    <Paper 
+                        elevation={24}
+                        sx={{ 
+                            p: 5, 
+                            borderRadius: "32px", 
+                            textAlign: "center", 
+                            maxWidth: 450,
+                            bgcolor: "rgba(10, 25, 47, 0.95)",
+                            border: "1px solid rgba(0, 212, 255, 0.3)",
+                            boxShadow: "0 20px 50px rgba(0, 212, 255, 0.15)",
+                        }}
+                    >
+                        <CircularProgress 
+                            size={70} 
+                            thickness={4}
+                            sx={{ 
+                                mb: 3, 
+                                color: "#00d4ff",
+                                filter: "drop-shadow(0 0 10px rgba(0, 212, 255, 0.5))"
+                            }} 
+                        />
+                        <Typography variant="h5" sx={{ mb: 2, fontWeight: 800, color: "#e6f1ff", letterSpacing: "-0.5px" }}>
                             Processing with Autoencoder
                         </Typography>
-                        <Typography color="text.secondary">
-                            Generating 128-bit tag • Compressing data • Embedding watermark • Applying PRNG scrambler
-                        </Typography>
+                        <Stack spacing={1}>
+                            <Typography sx={{ color: "#8892b0", fontSize: "0.95rem", lineHeight: 1.6 }}>
+                                • Generating 128-bit neural tag
+                            </Typography>
+                            <Typography sx={{ color: "#8892b0", fontSize: "0.95rem", lineHeight: 1.6 }}>
+                                • Compressing medical data
+                            </Typography>
+                            <Typography sx={{ color: "#8892b0", fontSize: "0.95rem", lineHeight: 1.6 }}>
+                                • Embedding watermark layers
+                            </Typography>
+                            <Typography sx={{ color: "#8892b0", fontSize: "0.95rem", lineHeight: 1.6 }}>
+                                • Applying adaptive PRNG scrambler
+                            </Typography>
+                        </Stack>
                     </Paper>
                 </Box>
             )}
