@@ -48,28 +48,39 @@ export const addHistory = (entry) => {
     try {
         const history = getHistory();
 
-        // FIX: Explicitly strip any base64 image data before storing.
-        // Callers previously passed resultImage as a full data URI which caused
-        // localStorage quota exhaustion.
-        const { resultImage, ...safeEntry } = entry;
-
+        // New feature: Side-by-side comparison in history
+        // Store both the original and resulting (watermarked) image
+        // To prevent quota exhaustion (5MB limit), we limit image storage to the most recent 5 entries.
         const newEntry = {
             id: `OP-${Math.floor(Math.random() * 9000) + 1000}`,
             date: new Date().toLocaleString(),
-            hasImage: Boolean(resultImage),  // only store boolean flag
-            ...safeEntry,
+            ...entry,
         };
 
-        // Keep last 50 entries
-        const updatedHistory = [newEntry, ...history].slice(0, 50);
+        // Strip images from entries beyond the last 5 to save space
+        const updatedHistory = [newEntry, ...history]
+            .slice(0, 50)  // total entries cap
+            .map((item, index) => {
+                if (index >= 5) {
+                    const { originalImage, resultImage, ...rest } = item;
+                    return { ...rest, hasImage: Boolean(resultImage) };
+                }
+                return { ...item, hasImage: Boolean(item.resultImage) };
+            });
 
         try {
             localStorage.setItem(HISTORY_KEY, JSON.stringify(updatedHistory));
         } catch (quotaError) {
-            // If quota is exceeded even after stripping images, remove oldest half
-            console.warn("localStorage quota exceeded, pruning history...");
-            const pruned = updatedHistory.slice(0, 25);
-            localStorage.setItem(HISTORY_KEY, JSON.stringify(pruned));
+            // Hard limit reached: strip images from EVERYTHING except the newest
+            console.warn("localStorage quota exceeded, stripping old images...");
+            const aggressivelyPruned = updatedHistory.map((item, index) => {
+                if (index > 0) {
+                    const { originalImage, resultImage, ...rest } = item;
+                    return { ...rest, hasImage: Boolean(resultImage) };
+                }
+                return item;
+            });
+            localStorage.setItem(HISTORY_KEY, JSON.stringify(aggressivelyPruned));
         }
 
         return newEntry;

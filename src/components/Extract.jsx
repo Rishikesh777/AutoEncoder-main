@@ -287,6 +287,20 @@ const Extract = () => {
         }
     };
 
+    // Standard input styling for dark theme visibility
+    const inputSx = {
+        "& .MuiInputLabel-root": { color: "#8892b0" },
+        "& .MuiInputLabel-root.Mui-focused": { color: "#00d4ff", fontWeight: 700 },
+        "& .MuiOutlinedInput-root": {
+            borderRadius: "12px",
+            bgcolor: "rgba(255, 255, 255, 0.03)",
+            "& fieldset": { borderColor: "rgba(0, 212, 255, 0.15)", transition: "all 0.2s" },
+            "&:hover fieldset": { borderColor: "rgba(0, 212, 255, 0.4)" },
+            "&.Mui-focused fieldset": { borderColor: "#00d4ff" },
+        },
+        "& .MuiInputBase-input": { color: "#e6f1ff", fontSize: "0.95rem" }
+    };
+
     return (
         <Box sx={{ maxWidth: 1000, mx: "auto", py: 4 }}>
             {/* Header */}
@@ -538,6 +552,7 @@ const Extract = () => {
                                                         value={metadataInput.image_id}
                                                         onChange={(e) => setMetadataInput({ ...metadataInput, image_id: e.target.value })}
                                                         disabled={isProcessing}
+                                                        sx={inputSx}
                                                     />
                                                 </Grid>
                                                 <Grid item xs={12} md={6}>
@@ -549,6 +564,7 @@ const Extract = () => {
                                                         value={metadataInput.session_key}
                                                         onChange={(e) => setMetadataInput({ ...metadataInput, session_key: e.target.value })}
                                                         disabled={isProcessing}
+                                                        sx={inputSx}
                                                     />
                                                 </Grid>
                                                 <Grid item xs={12}>
@@ -561,6 +577,7 @@ const Extract = () => {
                                                         value={decryptionPassword}
                                                         onChange={(e) => setDecryptionPassword(e.target.value)}
                                                         disabled={isProcessing}
+                                                        sx={inputSx}
                                                     />
                                                 </Grid>
                                             </Grid>
@@ -679,6 +696,80 @@ const Extract = () => {
                                                     </CardContent>
                                                 </Card>
                                             )}
+
+                                            {/* ── Quality Metrics Panel ── */}
+                                            {result && (() => {
+                                                const psnr = result.metadata?.psnr_watermarked_vs_restored ?? result.metadata?.psnr_original_vs_restored;
+                                                const ssim = result.metadata?.ssim_watermarked_vs_restored ?? result.metadata?.ssim_original_vs_restored;
+                                                const isVerified =
+                                                    result.verification?.verification_status === "verified" ||
+                                                    result.verification?.integrity_check === "passed";
+                                                const verdictOk = isVerified;
+                                                return (
+                                                    <Card sx={{
+                                                        borderRadius: "16px",
+                                                        bgcolor: verdictOk ? "rgba(0, 212, 100, 0.05)" : "rgba(220, 38, 38, 0.05)",
+                                                        border: `1px solid ${verdictOk ? "rgba(0, 212, 100, 0.3)" : "rgba(220,38,38,0.35)"}`,
+                                                        boxShadow: `0 0 20px ${verdictOk ? "rgba(0,212,100,0.06)" : "rgba(220,38,38,0.06)"}`,
+                                                    }}>
+                                                        <CardContent>
+                                                            <Box sx={{ display: "flex", alignItems: "center", gap: 1, mb: 2 }}>
+                                                                <Box sx={{ width: 6, height: 6, borderRadius: "50%", bgcolor: verdictOk ? "#00d464" : "#dc2626", boxShadow: `0 0 8px ${verdictOk ? "#00d464" : "#dc2626"}` }} />
+                                                                <Typography variant="subtitle2" sx={{ fontWeight: 700, color: verdictOk ? "#00d464" : "#ef4444", textTransform: "uppercase", fontSize: "0.75rem", letterSpacing: "0.08em" }}>
+                                                                    Reversibility Quality Metrics
+                                                                </Typography>
+                                                            </Box>
+                                                            <Grid container spacing={2} sx={{ mb: 2 }}>
+                                                                <Grid item xs={6}>
+                                                                    <Paper sx={{ p: 2, textAlign: "center", borderRadius: "14px", bgcolor: "rgba(0,212,255,0.05)", border: "1px solid rgba(0,212,255,0.12)" }}>
+                                                                        <Typography variant="caption" color="text.secondary" sx={{ display: "block", mb: 0.5 }}>PSNR</Typography>
+                                                                        <Typography variant="h5" sx={{ fontWeight: 800, color: "#e6f1ff", letterSpacing: "-0.5px" }}>
+                                                                            {psnr != null
+                                                                                ? (isNaN(psnr) || psnr === Infinity || psnr > 999 ? "∞" : Number(psnr).toFixed(2))
+                                                                                : "—"}
+                                                                        </Typography>
+                                                                        <Typography variant="caption" color="text.secondary">dB</Typography>
+                                                                    </Paper>
+                                                                </Grid>
+                                                                <Grid item xs={6}>
+                                                                    <Paper sx={{ p: 2, textAlign: "center", borderRadius: "14px", bgcolor: "rgba(0,212,255,0.05)", border: "1px solid rgba(0,212,255,0.12)" }}>
+                                                                        <Typography variant="caption" color="text.secondary" sx={{ display: "block", mb: 0.5 }}>SSIM</Typography>
+                                                                        <Typography variant="h5" sx={{ fontWeight: 800, color: "#e6f1ff", letterSpacing: "-0.5px" }}>
+                                                                            {ssim != null ? Number(ssim).toFixed(4) : "—"}
+                                                                        </Typography>
+                                                                        <Typography variant="caption" color="text.secondary">index</Typography>
+                                                                    </Paper>
+                                                                </Grid>
+                                                            </Grid>
+                                                            <Box sx={{
+                                                                display: "flex",
+                                                                alignItems: "center",
+                                                                gap: 1.5,
+                                                                p: 1.5,
+                                                                borderRadius: "12px",
+                                                                bgcolor: verdictOk ? "rgba(0,212,100,0.08)" : "rgba(220,38,38,0.08)",
+                                                                border: `1px solid ${verdictOk ? "rgba(0,212,100,0.25)" : "rgba(220,38,38,0.25)"}`,
+                                                            }}>
+                                                                {verdictOk
+                                                                    ? <CheckCircle sx={{ color: "#00d464", fontSize: 22 }} />
+                                                                    : <Warning sx={{ color: "#ef4444", fontSize: 22 }} />
+                                                                }
+                                                                <Box>
+                                                                    <Typography variant="body2" sx={{ fontWeight: 700, color: verdictOk ? "#00d464" : "#ef4444" }}>
+                                                                        Verdict: {verdictOk ? "Perfect Reversibility Confirmed" : "Image Tampered"}
+                                                                    </Typography>
+                                                                    <Typography variant="caption" color="text.secondary">
+                                                                        {verdictOk
+                                                                            ? "PSNR = ∞ & SSIM = 1.0 confirm pixel-perfect lossless recovery"
+                                                                            : "Integrity check failed — restored image differs from original"
+                                                                        }
+                                                                    </Typography>
+                                                                </Box>
+                                                            </Box>
+                                                        </CardContent>
+                                                    </Card>
+                                                );
+                                            })()}
 
                                             {/* Action Buttons */}
                                             <Stack direction="row" spacing={2}>

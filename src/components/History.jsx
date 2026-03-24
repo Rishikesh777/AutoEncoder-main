@@ -28,6 +28,7 @@ import {
     ImageOutlined,
 } from "@mui/icons-material";
 import { getHistory, deleteHistoryEntry, clearHistory } from "../utils/history";
+import ImageComparisonSlider from "./ImageComparisonSlider";
 
 const History = () => {
     const [history, setHistory] = useState([]);
@@ -287,8 +288,18 @@ const History = () => {
                                     </Paper>
                                 </Box>
 
-                                {/* Result image preview for Embed entries */}
-                                {viewingEntry.type === "Embed" && viewingEntry.resultImage && (
+                                {/* Side-by-Side Comparison for Embed entries */}
+                                {viewingEntry.type === "Embed" && viewingEntry.originalImage && viewingEntry.resultImage && (
+                                    <Box>
+                                        <ImageComparisonSlider
+                                            originalSrc={viewingEntry.originalImage}
+                                            watermarkedSrc={viewingEntry.resultImage}
+                                        />
+                                    </Box>
+                                )}
+
+                                {/* Fallback single image view if one is missing */}
+                                {viewingEntry.type === "Embed" && viewingEntry.resultImage && !viewingEntry.originalImage && (
                                     <Box>
                                         <Typography
                                             variant="caption"

@@ -1,4 +1,4 @@
-import React, { useState, useRef } from "react";
+import React, { useState, useRef, useCallback } from "react";
 import {
     Box,
     Typography,
@@ -31,8 +31,8 @@ import {
     CheckCircle,
 } from "@mui/icons-material";
 import { addHistory } from "../utils/history";
+import ImageComparisonSlider from "./ImageComparisonSlider";
 
-// Get auth token from localStorage
 const getAuthToken = () => localStorage.getItem("auth_token");
 
 const Embed = () => {
@@ -159,20 +159,26 @@ const Embed = () => {
                 setWatermarkedImageBase64(data.image);
             }
 
-            // FIX: Do NOT pass resultImage to addHistory — it strips it internally
-            // but being explicit here is cleaner and avoids confusion.
-            addHistory({
-                type: "Embed",
-                imageName: imageName,
-                data: dataToHide,
-                status: "Success",
-                metadata: {
-                    image_id: data.image_id,
-                    auth_tag: data.auth_tag,
-                    autoencoder_tag: data.autoencoder_tag,
-                    embedding_rate: data.metadata?.embedding_rate,
-                }
-            });
+            // Pass images to history for side-by-side comparison
+            const reader = new FileReader();
+            reader.onloadend = () => {
+                const originalBase64 = reader.result;
+                addHistory({
+                    type: "Embed",
+                    imageName: imageName,
+                    data: dataToHide,
+                    status: "Success",
+                    originalImage: originalBase64,
+                    resultImage: `data:image/png;base64,${data.image}`,
+                    metadata: {
+                        image_id: data.image_id,
+                        auth_tag: data.auth_tag,
+                        autoencoder_tag: data.autoencoder_tag,
+                        embedding_rate: data.metadata?.embedding_rate,
+                    }
+                });
+            };
+            reader.readAsDataURL(imageFile);
 
             showNotification("✓ Data embedded successfully!", "success");
 
@@ -424,7 +430,10 @@ const Embed = () => {
                                             sx={{
                                                 "& .MuiOutlinedInput-root": {
                                                     borderRadius: "16px",
-                                                    bgcolor: "#112d4e",
+                                                    bgcolor: "rgba(255, 255, 255, 0.03)",
+                                                    "& fieldset": { borderColor: "rgba(0, 212, 255, 0.15)" },
+                                                    "&:hover fieldset": { borderColor: "rgba(0, 212, 255, 0.4)" },
+                                                    "&.Mui-focused fieldset": { borderColor: "#00d4ff" },
                                                 },
                                             }}
                                         />
@@ -444,9 +453,14 @@ const Embed = () => {
                                             disabled={isProcessing}
                                             sx={{
                                                 mt: 2,
+                                                "& .MuiInputLabel-root": { color: "#8892b0" },
+                                                "& .MuiInputLabel-root.Mui-focused": { color: "#00d4ff" },
                                                 "& .MuiOutlinedInput-root": {
                                                     borderRadius: "16px",
                                                     bgcolor: "rgba(255, 255, 255, 0.05)",
+                                                    "& fieldset": { borderColor: "rgba(0, 212, 255, 0.15)" },
+                                                    "&:hover fieldset": { borderColor: "rgba(0, 212, 255, 0.4)" },
+                                                    "&.Mui-focused fieldset": { borderColor: "#00d4ff" },
                                                 },
                                             }}
                                             helperText="If set, data can only be read by someone with this password. Leave blank for no encryption."
@@ -472,13 +486,22 @@ const Embed = () => {
                                                 py: 2,
                                                 borderRadius: "16px",
                                                 fontSize: "1.1rem",
-                                                fontWeight: 700,
+                                                fontWeight: 900,
                                                 textTransform: "none",
                                                 background: "linear-gradient(135deg, #00d4ff, #112d4e)",
-                                                color: "#e6f1ff",
+                                                color: "#ffffff",
+                                                letterSpacing: "0.03em",
+                                                textShadow: "0px 1px 4px rgba(0, 0, 0, 0.5)",
+                                                boxShadow: "0 8px 24px rgba(0, 212, 255, 0.2)",
                                                 "&:hover": {
                                                     background: "linear-gradient(135deg, #33ddff, #0a192f)",
                                                     transform: "translateY(-2px)",
+                                                    boxShadow: "0 12px 32px rgba(0, 212, 255, 0.3)",
+                                                },
+                                                "&.Mui-disabled": {
+                                                    background: "linear-gradient(135deg, #00d4ff, #112d4e)",
+                                                    opacity: 0.6,
+                                                    color: "rgba(255, 255, 255, 0.8)",
                                                 },
                                                 transition: "all 0.3s ease",
                                             }}
@@ -624,6 +647,14 @@ const Embed = () => {
                                 </Card>
                             </Grid>
                         </Grid>
+
+                        {/* ── Image Comparison Slider ── */}
+                        {image && watermarkedImageBase64 && (
+                            <ImageComparisonSlider
+                                originalSrc={image}
+                                watermarkedSrc={`data:image/png;base64,${watermarkedImageBase64}`}
+                            />
+                        )}
                     </Paper>
                 </Fade>
             )}
