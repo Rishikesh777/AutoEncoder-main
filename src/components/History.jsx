@@ -56,11 +56,25 @@ const History = () => {
         if (entry.type === "Embed" && entry.resultImage) {
             link.href = entry.resultImage;
             link.download = `watermarked_${entry.imageName}`;
+        } else if (entry.type === "Extract" && entry.resultImage) {
+            link.href = entry.resultImage;
+            link.download = `restored_${entry.imageName}`;
         } else {
             const file = new Blob([entry.data || ""], { type: "text/plain" });
             link.href = URL.createObjectURL(file);
             link.download = `extracted_data_${entry.id}.txt`;
         }
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
+    };
+
+    const handleDownloadMetadata = (entry) => {
+        if (!entry.metadata) return;
+        const blob = new Blob([JSON.stringify(entry.metadata, null, 2)], { type: "application/json" });
+        const link = document.createElement("a");
+        link.href = URL.createObjectURL(blob);
+        link.download = `metadata_${entry.id}.json`;
         document.body.appendChild(link);
         link.click();
         document.body.removeChild(link);
@@ -381,13 +395,23 @@ const History = () => {
                             >
                                 Close
                             </Button>
+                            {viewingEntry.type === "Embed" && viewingEntry.metadata && (
+                                <Button
+                                    variant="outlined"
+                                    onClick={() => handleDownloadMetadata(viewingEntry)}
+                                    startIcon={<Download />}
+                                    sx={{ borderRadius: "12px", textTransform: "none", px: 3 }}
+                                >
+                                    Download Metadata
+                                </Button>
+                            )}
                             <Button
                                 variant="contained"
                                 onClick={() => handleDownload(viewingEntry)}
                                 startIcon={<Download />}
                                 sx={{ borderRadius: "12px", textTransform: "none", px: 3 }}
                             >
-                                Download
+                                {viewingEntry.type === "Extract" ? "Download Image" : "Download"}
                             </Button>
                         </DialogActions>
                     </>

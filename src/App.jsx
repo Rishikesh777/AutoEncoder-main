@@ -60,6 +60,13 @@ const darkTheme = createTheme({
       secondary: "#8892b0",
     },
     divider: "rgba(0, 212, 255, 0.08)",
+    action: {
+      active: "#8892b0",
+      hover: "rgba(0, 212, 255, 0.1)",
+      selected: "rgba(0, 212, 255, 0.2)",
+      disabled: "rgba(136, 146, 176, 0.4)",
+      disabledBackground: "rgba(136, 146, 176, 0.12)",
+    },
   },
   typography: {
     fontFamily: '"Inter", "Roboto", "Helvetica", "Arial", sans-serif',
@@ -160,6 +167,44 @@ const darkTheme = createTheme({
       styleOverrides: {
         root: {
           color: "#e6f1ff",
+        },
+      },
+    },
+    MuiTextField: {
+      styleOverrides: {
+        root: {
+          '& .MuiOutlinedInput-root': {
+            borderRadius: '12px',
+            backgroundColor: 'rgba(255, 255, 255, 0.03)',
+            '& fieldset': {
+              borderColor: 'rgba(0, 212, 255, 0.15)',
+              transition: 'all 0.2s ease-in-out',
+            },
+            '&:hover fieldset': {
+              borderColor: '#00d4ff',
+              borderWidth: '1px',
+            },
+            '&.Mui-focused fieldset': {
+              borderColor: '#00d4ff',
+              borderWidth: '2px',
+            },
+            '& input': {
+              color: '#e6f1ff',
+              '&::placeholder': {
+                color: '#8892b0',
+                opacity: 0.7,
+              },
+            },
+          },
+          '& .MuiInputLabel-root': {
+            color: '#8892b0',
+          },
+          '& .MuiInputLabel-root.Mui-focused': {
+            color: '#00d4ff',
+          },
+          '& .MuiInputAdornment-root .MuiSvgIcon-root': {
+            color: '#8892b0',
+          },
         },
       },
     },

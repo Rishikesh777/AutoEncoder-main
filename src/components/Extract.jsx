@@ -52,6 +52,7 @@ const Extract = () => {
     const [imageName, setImageName] = useState("");
     const [result, setResult] = useState(null);
     const [error, setError] = useState(null);
+    const [restoredImageBase64, setRestoredImageBase64] = useState(null);
     const [notification, setNotification] = useState({ open: false, message: "", severity: "info" });
     const [metadataInput, setMetadataInput] = useState({ image_id: "", session_key: "" });
     const [decryptionPassword, setDecryptionPassword] = useState("");
@@ -72,6 +73,7 @@ const Extract = () => {
             setExtractedData("");
             setResult(null);
             setError(null);
+            setRestoredImageBase64(null);
             setIsTampered(false);
             setHasUploadedAtLeastOnce(true);
         }
@@ -189,6 +191,9 @@ const Extract = () => {
             // Success!
             setResult(data);
             setExtractedData(data.extracted_data);
+            if (data.restored_image) {
+                setRestoredImageBase64(data.restored_image);
+            }
             setIsExtracted(true);
 
             // Save to history
@@ -197,7 +202,7 @@ const Extract = () => {
                 imageName: imageName,
                 data: data.extracted_data,
                 status: "Success",
-                resultImage: image,
+                resultImage: data.restored_image ? `data:image/png;base64,${data.restored_image}` : null,
                 metadata: {
                     autoencoder_tag: data.extracted_tag || data.current_tag,
                     verification_status: data.verification?.verification_status,
@@ -216,15 +221,14 @@ const Extract = () => {
         }
     };
 
-    const handleDownloadResult = () => {
-        if (!extractedData) return;
-        const element = document.createElement("a");
-        const file = new Blob([extractedData], { type: 'text/plain' });
-        element.href = URL.createObjectURL(file);
-        element.download = `extracted_data_${imageName || "image"}.txt`;
-        document.body.appendChild(element);
-        element.click();
-        document.body.removeChild(element);
+    const handleDownloadImage = () => {
+        if (!restoredImageBase64) return;
+        const link = document.createElement("a");
+        link.href = `data:image/png;base64,${restoredImageBase64}`;
+        link.download = `restored_${imageName || "image.png"}`;
+        document.body.appendChild(link);
+        link.click();
+        document.body.removeChild(link);
     };
 
     const handleDownloadVerificationReport = () => {
@@ -262,6 +266,7 @@ const Extract = () => {
         setIsExtracted(false);
         setResult(null);
         setError(null);
+        setRestoredImageBase64(null);
         if (fileInputRef.current) fileInputRef.current.value = "";
     };
 
@@ -270,6 +275,7 @@ const Extract = () => {
         setExtractedData("");
         setResult(null);
         setError(null);
+        setRestoredImageBase64(null);
         setIsTampered(false);
     };
 
@@ -776,8 +782,9 @@ const Extract = () => {
                                                 <Button
                                                     variant="contained"
                                                     size="large"
-                                                    onClick={handleDownloadResult}
-                                                    startIcon={<Download />}
+                                                    onClick={handleDownloadImage}
+                                                    startIcon={<ImageIcon />}
+                                                    disabled={!restoredImageBase64}
                                                     sx={{
                                                         flex: 1,
                                                         py: 1.5,
@@ -789,7 +796,7 @@ const Extract = () => {
                                                         color: "#020c1b",
                                                     }}
                                                 >
-                                                    Download Text
+                                                    Download Image
                                                 </Button>
                                                 <Button
                                                     variant="outlined"

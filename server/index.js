@@ -491,6 +491,7 @@ app.post('/api/autoencoder/extract', authMiddleware, upload.single('image'), asy
             success: true,
             message: 'Data extracted successfully',
             extracted_data: result.extracted_data,
+            restored_image: result.restored_image,
             autoencoder_tag: result.autoencoder_tag,
             verification: result.verification,
             metadata: result.metadata

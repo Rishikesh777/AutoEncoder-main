@@ -625,9 +625,16 @@ async def extract_data(
 
         print(f"\n  Final status: {verification_result['verification_status']}")
 
+        # Convert restored image to base64 PNG
+        restored_pil = Image.fromarray(restored_image.astype(np.uint8), mode='L')
+        res_buffer = io.BytesIO()
+        restored_pil.save(res_buffer, format='PNG')
+        restored_base64 = base64.b64encode(res_buffer.getvalue()).decode()
+
         return JSONResponse({
             'success':               True,
             'extracted_data':        extracted_user_data,
+            'restored_image':        restored_base64,
             'extracted_tag':         extracted_tag,
             'extracted_hash':        extracted_hash,
             'current_tag':           current_tag,

@@ -174,7 +174,12 @@ const Embed = () => {
                         image_id: data.image_id,
                         auth_tag: data.auth_tag,
                         autoencoder_tag: data.autoencoder_tag,
-                        embedding_rate: data.metadata?.embedding_rate,
+                        session_key: data.session_key,
+                        metadata: data.metadata,
+                        psnr_original_vs_watermarked: data.metadata?.psnr_original_vs_watermarked,
+                        ssim_original_vs_watermarked: data.metadata?.ssim_original_vs_watermarked,
+                        timestamp: new Date().toISOString(),
+                        image_name: imageName,
                     }
                 });
             };
@@ -445,7 +450,7 @@ const Embed = () => {
                                         <TextField
                                             fullWidth
                                             type="password"
-                                            label="Encryption Password (optional)"
+                                            label="Encryption Password"
                                             placeholder="Set a password to protect the embedded data..."
                                             variant="outlined"
                                             value={encryptionPassword}

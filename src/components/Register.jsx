@@ -152,11 +152,7 @@ function Register({ setActivePage, setIsLoggedIn, showNotification }) {
                                     </InputAdornment>
                                 ),
                             }}
-                            sx={{
-                                "& .MuiOutlinedInput-root": {
-                                    borderRadius: 2,
-                                }
-                            }}
+                            sx={{ mt: 1 }}
                         />
                         <TextField
                             margin="normal"
@@ -175,11 +171,7 @@ function Register({ setActivePage, setIsLoggedIn, showNotification }) {
                                     </InputAdornment>
                                 ),
                             }}
-                            sx={{
-                                "& .MuiOutlinedInput-root": {
-                                    borderRadius: 2,
-                                }
-                            }}
+                            sx={{ mt: 1 }}
                         />
                         <TextField
                             margin="normal"
@@ -208,11 +200,7 @@ function Register({ setActivePage, setIsLoggedIn, showNotification }) {
                                     </InputAdornment>
                                 ),
                             }}
-                            sx={{
-                                "& .MuiOutlinedInput-root": {
-                                    borderRadius: 2,
-                                }
-                            }}
+                            sx={{ mt: 1 }}
                         />
                         <TextField
                             margin="normal"
@@ -231,11 +219,7 @@ function Register({ setActivePage, setIsLoggedIn, showNotification }) {
                                     </InputAdornment>
                                 ),
                             }}
-                            sx={{
-                                "& .MuiOutlinedInput-root": {
-                                    borderRadius: 2,
-                                }
-                            }}
+                            sx={{ mt: 1 }}
                         />
                         <Button
                             type="submit"
